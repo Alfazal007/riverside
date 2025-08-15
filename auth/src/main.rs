@@ -1,15 +1,21 @@
 use std::env;
 
-use actix_web::{App, HttpServer, web};
+use actix_web::{
+    App, HttpServer,
+    middleware::{Logger, from_fn},
+    web,
+};
 use sqlx::postgres::PgPoolOptions;
 
 use crate::{
-    controllers::users::{signin, signup},
+    controllers::users::{signin, signup, whoami},
+    middlewares::auth_middleware,
     types::main::AppState,
 };
 
 pub mod controllers;
 pub mod helpers;
+pub mod middlewares;
 pub mod types;
 
 #[actix_web::main]
@@ -36,6 +42,7 @@ async fn main() -> std::io::Result<()> {
 
     HttpServer::new(move || {
         App::new()
+            .wrap(Logger::default())
             .app_data(web::Data::new(AppState {
                 db_connection_pool: pool.clone(),
                 access_token_secret: access_token_secret.clone(),
@@ -45,6 +52,11 @@ async fn main() -> std::io::Result<()> {
                 web::scope("/api/auth")
                     .route("/signup", web::post().to(signup::signup))
                     .route("/signin", web::post().to(signin::signin)),
+            )
+            .service(
+                web::scope("/api/protected")
+                    .wrap(from_fn(auth_middleware::auth_middleware))
+                    .route("/whoami", web::get().to(whoami::whoami)),
             )
     })
     .bind(("127.0.0.1", 8000))?
