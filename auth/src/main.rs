@@ -1,7 +1,8 @@
 use std::env;
 
+use actix_cors::Cors;
 use actix_web::{
-    App, HttpServer,
+    App, HttpServer, http,
     middleware::{Logger, from_fn},
     web,
 };
@@ -45,6 +46,16 @@ async fn main() -> std::io::Result<()> {
 
     HttpServer::new(move || {
         App::new()
+            .wrap(
+                Cors::default()
+                    .allowed_origin("http://localhost:3000")
+                    .allowed_methods(vec!["GET", "POST", "OPTIONS"])
+                    .allowed_headers(vec![
+                        http::header::CONTENT_TYPE,
+                        http::header::AUTHORIZATION,
+                    ])
+                    .supports_credentials(),
+            )
             .wrap(Logger::default())
             .app_data(web::Data::new(AppState {
                 db_connection_pool: pool.clone(),

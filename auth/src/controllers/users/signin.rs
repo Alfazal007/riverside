@@ -83,14 +83,14 @@ pub async fn signin(
     let cookie1 = Cookie::build("accessToken", token_res.as_ref().unwrap())
         .path("/")
         .secure(true)
-        .http_only(true)
+        //       .http_only(true)
         .same_site(SameSite::None)
         .finish();
 
     let cookie2 = Cookie::build("userId", format!("{}", user.id))
         .path("/")
         .secure(true)
-        .http_only(true)
+        //       .http_only(true)
         .same_site(SameSite::None)
         .finish();
 
