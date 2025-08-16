@@ -8,7 +8,10 @@ use actix_web::{
 use sqlx::postgres::PgPoolOptions;
 
 use crate::{
-    controllers::users::{signin, signup, whoami},
+    controllers::{
+        meets::{add_participant, create_meet},
+        users::{signin, signup, whoami},
+    },
     middlewares::auth_middleware,
     types::main::AppState,
 };
@@ -57,6 +60,16 @@ async fn main() -> std::io::Result<()> {
                 web::scope("/api/protected")
                     .wrap(from_fn(auth_middleware::auth_middleware))
                     .route("/whoami", web::get().to(whoami::whoami)),
+            )
+            .service(
+                web::scope("/api/meet")
+                    .wrap(from_fn(auth_middleware::auth_middleware))
+                    .route("/create", web::post().to(create_meet::create_meet)),
+            )
+            .service(
+                web::scope("/api/participant")
+                    .wrap(from_fn(auth_middleware::auth_middleware))
+                    .route("/add", web::post().to(add_participant::add_participant)),
             )
     })
     .bind(("127.0.0.1", 8000))?

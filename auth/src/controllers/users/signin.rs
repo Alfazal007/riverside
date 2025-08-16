@@ -70,7 +70,11 @@ pub async fn signin(
     if redis_conn.is_ok() {
         let mut conn = redis_conn.unwrap();
         let _: () = conn
-            .set(format!("auth:{}", user.id), token_res.as_ref().unwrap())
+            .set_ex(
+                format!("auth:{}", user.id),
+                token_res.as_ref().unwrap(),
+                86400,
+            )
             .unwrap();
         let _: () = conn
             .set_ex(format!("email:{}", user.id,), user.email, 86400)
