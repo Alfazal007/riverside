@@ -30,7 +30,6 @@ pub async fn signin(
             .fetch_optional(&data.db_connection_pool)
             .await;
     if existing_user.is_err() {
-        println!("{:?}", existing_user);
         return HttpResponse::InternalServerError().json(GeneralErrorsToBeReturned {
             error: String::from("Issue talking to the database"),
         });

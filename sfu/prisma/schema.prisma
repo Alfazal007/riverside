@@ -8,9 +8,31 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model users {
-  id       Int    @id @default(autoincrement())
-  email    String @unique
-  username String
-  password String
+model User {
+  id           Int           @id @default(autoincrement())
+  email        String        @unique
+  username     String
+  password     String
+  meetsHosted  Meet[]        @relation("UserToHost")
+  participants Participant[]
+  @@map("users")
+}
+
+model Meet {
+  id          Int            @id @default(autoincrement())
+  title       String         @default("meet")
+  hostId      Int
+  host        User           @relation("UserToHost", fields: [hostId], references: [id], onDelete: Cascade)
+  participants Participant[]
+  @@map("meets")
+}
+
+model Participant {
+  id      Int   @id @default(autoincrement())
+  meet_id  Int
+  user_id  Int
+  meet    Meet  @relation(fields: [meet_id], references: [id], onDelete: Cascade)
+  user    User  @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  @@unique([meet_id, user_id])
+  @@map("participants")
 }
