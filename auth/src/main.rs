@@ -10,7 +10,7 @@ use sqlx::postgres::PgPoolOptions;
 
 use crate::{
     controllers::{
-        meets::{add_participant, create_meet, get_meets},
+        meets::{add_participant, create_meet, get_meet_info, get_meets, remove_participant},
         users::{signin, signup, whoami},
     },
     middlewares::auth_middleware,
@@ -49,7 +49,7 @@ async fn main() -> std::io::Result<()> {
             .wrap(
                 Cors::default()
                     .allowed_origin("http://localhost:3000")
-                    .allowed_methods(vec!["GET", "POST", "OPTIONS"])
+                    .allowed_methods(vec!["GET", "POST", "OPTIONS", "DELETE"])
                     .allowed_headers(vec![
                         http::header::CONTENT_TYPE,
                         http::header::AUTHORIZATION,
@@ -76,12 +76,17 @@ async fn main() -> std::io::Result<()> {
                 web::scope("/api/meet")
                     .wrap(from_fn(auth_middleware::auth_middleware))
                     .route("/create", web::post().to(create_meet::create_meet))
+                    .route("/get-meet", web::post().to(get_meet_info::get_meet_info))
                     .route("/all-meets", web::get().to(get_meets::get_meets)),
             )
             .service(
                 web::scope("/api/participant")
                     .wrap(from_fn(auth_middleware::auth_middleware))
-                    .route("/add", web::post().to(add_participant::add_participant)),
+                    .route("/add", web::post().to(add_participant::add_participant))
+                    .route(
+                        "/remove",
+                        web::post().to(remove_participant::remove_participant),
+                    ),
             )
     })
     .bind(("127.0.0.1", 8000))?

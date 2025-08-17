@@ -85,7 +85,7 @@ export default function MeetsPage() {
                                     <div className="flex items-start justify-between">
                                         <div className="flex-1">
                                             <CardTitle className="text-xl mb-2 line-clamp-2">
-                                                {meet.id}
+                                                {meet.meet_id}
                                             </CardTitle>
                                         </div>
                                     </div>
@@ -93,7 +93,7 @@ export default function MeetsPage() {
                                 <CardContent className="space-y-4">
                                     <Button
                                         className="w-full bg-green-600 hover:bg-green-700"
-                                        onClick={() => handleJoinMeet(meet.id)}
+                                        onClick={() => handleJoinMeet(Number(meet.meet_id))}
                                     >
                                         <Play className="h-4 w-4 mr-2" />
                                         Join
