@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Navigation } from '@/components/navigation';
 import { Calendar, Users } from 'lucide-react';
 import { CreateMeetFormData } from '@/types';
+import axios from 'axios';
 
 export default function CreateMeetPage() {
     const router = useRouter();
@@ -42,17 +43,14 @@ export default function CreateMeetPage() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-
         if (!validateForm()) return;
-
         setIsLoading(true);
-
-        // Simulate API call
         try {
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            const newMeetResponse = await axios.post("http://localhost:8000/api/meet/create", {
+                title: formData.title
+            }, { withCredentials: true })
             console.log('Meet created:', formData);
-            // Redirect to add participants page with the meet ID
-            router.push(`/add-participants?meetId=${Date.now()}&title=${encodeURIComponent(formData.title)}`);
+            router.push(`/add-participants?meetId=${newMeetResponse.data.id}`);
         } catch (error) {
             console.error('Failed to create meet:', error);
         } finally {

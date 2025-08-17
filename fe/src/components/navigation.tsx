@@ -4,6 +4,8 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Mic, Users, Calendar, LogOut } from 'lucide-react';
+import { useContext } from 'react';
+import { UserContext } from '@/context/UserContext';
 
 interface NavigationProps {
     isAuthenticated?: boolean;
@@ -11,6 +13,7 @@ interface NavigationProps {
 
 export function Navigation({ isAuthenticated = false }: NavigationProps) {
     const pathname = usePathname();
+    const { user } = useContext(UserContext)
 
     const isActive = (path: string) => pathname === path;
 
@@ -55,7 +58,7 @@ export function Navigation({ isAuthenticated = false }: NavigationProps) {
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="flex justify-between h-16">
                         <div className="flex items-center space-x-8">
-                            <Link href="/dashboard" className="flex items-center space-x-2">
+                            <Link href="/" className="flex items-center space-x-2">
                                 <Mic className="h-8 w-8 text-blue-600" />
                                 <span className="font-bold text-xl">PodcastPro</span>
                             </Link>
@@ -83,7 +86,7 @@ export function Navigation({ isAuthenticated = false }: NavigationProps) {
                             </div>
                         </div>
                         <div className="flex items-center space-x-4">
-                            <span className="text-sm text-gray-600">john@example.com</span>
+                            <span className="text-sm text-gray-600">{user?.email}</span>
                             <Link href="/">
                                 <Button variant="ghost" size="sm">
                                     <LogOut className="h-4 w-4" />

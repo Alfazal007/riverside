@@ -62,10 +62,11 @@ pub async fn add_participant(
         });
     }
     let new_participant = sqlx::query_as::<_, ParticipantFromDb>(
-        "insert into participants(meet_id,user_id) values($1, $2) returning *",
+        "insert into participants(meet_id,user_id,is_host) values($1, $2,$3) returning *",
     )
     .bind(add_participant_data.0.meet_id)
     .bind(existing_user.unwrap().unwrap().id)
+    .bind(false)
     .fetch_optional(&app_state.db_connection_pool)
     .await;
     if new_participant.is_err() || new_participant.as_ref().unwrap().is_none() {

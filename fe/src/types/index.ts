@@ -5,8 +5,9 @@ export interface User {
 }
 
 export interface Meet {
-    id: string;
-    title: string;
+    id: number;
+    meet_id: string;
+    is_host: boolean
 }
 
 export interface Participant {
@@ -33,5 +34,4 @@ export interface CreateMeetFormData {
 
 export interface AddParticipantFormData {
     email: string;
-    role: 'host' | 'guest';
 }

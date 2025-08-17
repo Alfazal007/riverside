@@ -2,7 +2,8 @@ import React, { createContext, useState } from "react";
 
 type User = {
     userId: number,
-    accessToken: string
+    accessToken: string,
+    email: string
 }
 
 export const UserContext = createContext<{

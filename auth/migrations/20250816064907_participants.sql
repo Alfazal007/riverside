@@ -2,6 +2,7 @@ CREATE TABLE participants (
     id SERIAL PRIMARY KEY,
     meet_id INT not null,
     user_id INT not null,
+    is_host BOOLEAN default(false),
     CONSTRAINT fk_meet FOREIGN KEY (meet_id)
         REFERENCES meets(id)
         ON DELETE CASCADE,

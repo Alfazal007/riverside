@@ -1,7 +1,7 @@
 'use client';
 
 import Cookies from "js-cookie";
-import { useContext, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,10 +13,20 @@ import {
 } from 'lucide-react';
 import { Meet } from '@/types';
 import { useRouter } from 'next/navigation';
+import axios from "axios";
 
 export default function MeetsPage() {
-    const [meets] = useState<Meet[]>([]);
+    const [meets, setMeets] = useState<Meet[]>([]);
     const router = useRouter()
+
+    async function getMeets() {
+        try {
+            const meets = await axios.get("http://localhost:8000/api/meet/all-meets", { withCredentials: true })
+            setMeets(meets.data)
+        } catch (err) {
+            console.log("issue fetching data")
+        }
+    }
 
     useEffect(() => {
         const accessToken = Cookies.get("accessToken")
@@ -25,13 +35,10 @@ export default function MeetsPage() {
             router.push("/login")
             return
         }
-        console.log({ accessToken })
-        console.log({ userId })
+        getMeets()
     }, [])
 
-    const handleJoinMeet = (meetId: string, meetTitle: string) => {
-        console.log(`Joining meet: ${meetId} - ${meetTitle}`);
-        alert(`Joining "${meetTitle}"...\n\nIn a real application, this would open the recording interface.`);
+    const handleJoinMeet = (meetId: number) => {
     };
 
     return (
@@ -78,7 +85,7 @@ export default function MeetsPage() {
                                     <div className="flex items-start justify-between">
                                         <div className="flex-1">
                                             <CardTitle className="text-xl mb-2 line-clamp-2">
-                                                {meet.title}
+                                                {meet.id}
                                             </CardTitle>
                                         </div>
                                     </div>
@@ -86,11 +93,21 @@ export default function MeetsPage() {
                                 <CardContent className="space-y-4">
                                     <Button
                                         className="w-full bg-green-600 hover:bg-green-700"
-                                        onClick={() => handleJoinMeet(meet.id, meet.title)}
+                                        onClick={() => handleJoinMeet(meet.id)}
                                     >
                                         <Play className="h-4 w-4 mr-2" />
-                                        Join Live Recording
+                                        Join
                                     </Button>
+                                    {
+                                        meet.is_host &&
+                                        <Link href={`/add-participants?meetId=${meet.id}`}>
+                                            <Button
+                                                className="w-full bg-green-600 hover:bg-green-700"
+                                            >
+                                                Add participants
+                                            </Button>
+                                        </Link>
+                                    }
                                 </CardContent>
                             </Card>
                         ))}
@@ -111,6 +128,6 @@ export default function MeetsPage() {
                     </div>
                 )}
             </div>
-        </div>
+        </div >
     );
 }

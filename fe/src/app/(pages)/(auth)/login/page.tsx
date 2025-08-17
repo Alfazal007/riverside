@@ -66,7 +66,8 @@ export default function LoginPage() {
             }
             setUser({
                 accessToken: response.data.access_token,
-                userId: response.data.user_id
+                userId: response.data.user_id,
+                email: formData.email
             })
         } catch (error) {
             console.error('Signup failed:', error);

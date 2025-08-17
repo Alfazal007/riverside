@@ -50,10 +50,11 @@ pub async fn create_meet(
     let new_meet = new_meet.unwrap();
 
     let new_participant = sqlx::query_as::<_, ParticipantFromDb>(
-        "insert into participants (meet_id,user_id) values($1, $2) returning *",
+        "insert into participants (meet_id,user_id,is_host) values($1, $2, $3) returning *",
     )
     .bind(new_meet.id)
     .bind(user_data.user_id)
+    .bind(true)
     .fetch_optional(&app_state.db_connection_pool)
     .await;
     if new_participant.is_err() {
