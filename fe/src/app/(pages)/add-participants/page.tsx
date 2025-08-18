@@ -1,5 +1,6 @@
 'use client';
 
+import Cookies from 'js-cookie';
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -7,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Navigation } from '@/components/navigation';
-import { Users, Plus, Crown, User, Trash2 } from 'lucide-react';
+import { Users, Plus, Crown, User, Trash2, Play } from 'lucide-react';
 import { AddParticipantFormData, Participant } from '@/types';
 import axios from 'axios';
 import { toast } from "sonner"
@@ -38,11 +39,11 @@ export default function AddParticipantsPage() {
 
     const [formData, setFormData] = useState<AddParticipantFormData>({
         email: '',
+        username: ''
     });
     const [meetData, setMeetdata] = useState<ParticipantsAndMeet>();
     const [participants, setParticipants] = useState<Participant[]>([]);
     const [errors, setErrors] = useState<Partial<AddParticipantFormData>>({});
-    const [isLoading, setIsLoading] = useState(false);
 
     async function handleRemoveParticipant(participantId: number, meetId: number) {
         try {
@@ -56,7 +57,22 @@ export default function AddParticipantsPage() {
         console.log({ participantId })
     }
 
-    // Redirect if no meetId
+    async function handleJoinMeet(meetId: number) {
+        if (formData.username.length < 2 || formData.username.length > 20) {
+            return
+        }
+        router.push(`/meet-join/${meetId}/${formData.username}`)
+    }
+
+    useEffect(() => {
+        const accessToken = Cookies.get("accessToken")
+        const userId = Cookies.get("userId")
+        if (!accessToken || !userId) {
+            router.push("/login")
+            return
+        }
+    }, [])
+
     useEffect(() => {
         if (!meetId) {
             router.push('/create-meet');
@@ -121,27 +137,57 @@ export default function AddParticipantsPage() {
         <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
             <Navigation isAuthenticated />
 
-            <div className="text-center mb-12">
-                {meetData && meetData.meet.title}
-            </div>
             <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
                 <div className="text-center mb-12">
                     <div className="flex items-center justify-center mb-6">
                         <Users className="h-12 w-12 text-blue-600" />
                     </div>
-                    <h1 className="text-4xl font-bold text-gray-900 mb-4">Add Participants</h1>
+                    <h1 className="text-4xl font-bold text-gray-900 mb-4">Add Participants to {meetData?.meet.title}</h1>
                     <p className="text-xl text-gray-600">
                         Invite guests to join
                     </p>
                 </div>
 
+
                 <div className="max-w-2xl mx-auto space-y-8">
+                    <Card className="shadow-lg border-0">
+                        {
+                            (meetData && meetData.meet &&
+                                meetData.meet.is_finished && meetData.meet.id) ? <></> :
+                                <div className='p-4'>
+                                    <Label htmlFor="username" className='m-2'>Username</Label>
+                                    <Input
+                                        id="username"
+                                        min={3}
+                                        max={20}
+                                        name="username"
+                                        type="text"
+                                        placeholder="johndoe"
+                                        value={formData.username}
+                                        onChange={handleChange}
+                                        className={errors.username ? 'border-red-500' : ''}
+                                    />
+
+                                    <Button
+                                        className={`w-full bg-green-600 hover:bg-green-700 mt-2`}
+                                        onClick={() => handleJoinMeet(meetData?.meet.id as number)}
+                                        disabled={!(formData.username.length > 2 && formData.username.length <= 20)}
+                                    >
+                                        <Play className="h-4 w-4 mr-2" />
+                                        Join
+                                    </Button>
+                                </div>
+                        }
+                    </Card>
+                </div>
+
+                <div className="max-w-2xl mx-auto space-y-8 mt-2">
                     {/* Add Participant Form */}
                     <Card className="shadow-lg border-0">
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2">
                                 <Plus className="h-5 w-5" />
-                                Add Participant
+                                Add Participants
                             </CardTitle>
                             <CardDescription>
                                 Enter participant email

@@ -8,7 +8,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Navigation } from '@/components/navigation';
 import {
     Calendar,
-    Play,
     Plus,
 } from 'lucide-react';
 import { Meet } from '@/types';
@@ -37,9 +36,6 @@ export default function MeetsPage() {
         }
         getMeets()
     }, [])
-
-    const handleJoinMeet = (meetId: number) => {
-    };
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
@@ -91,13 +87,6 @@ export default function MeetsPage() {
                                     </div>
                                 </CardHeader>
                                 <CardContent className="space-y-4">
-                                    <Button
-                                        className="w-full bg-green-600 hover:bg-green-700"
-                                        onClick={() => handleJoinMeet(Number(meet.meet_id))}
-                                    >
-                                        <Play className="h-4 w-4 mr-2" />
-                                        Join
-                                    </Button>
                                     {
                                         meet.is_host &&
                                         <Link href={`/add-participants?meetId=${meet.id}`}>

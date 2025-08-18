@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import Cookies from 'js-cookie';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -57,6 +58,16 @@ export default function CreateMeetPage() {
             setIsLoading(false);
         }
     };
+
+
+    useEffect(() => {
+        const accessToken = Cookies.get("accessToken")
+        const userId = Cookies.get("userId")
+        if (!accessToken || !userId) {
+            router.push("/login")
+            return
+        }
+    }, [])
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">

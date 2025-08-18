@@ -34,4 +34,5 @@ export interface CreateMeetFormData {
 
 export interface AddParticipantFormData {
     email: string;
+    username: string
 }

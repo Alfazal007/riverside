@@ -6,8 +6,7 @@ import { RouterManager } from "./components/routerManager"
 
 export function addHandlers() {
     io.on("connection", (socket) => {
-        socket.on("establish-connection", async (data) => {
-            const dataParsed: EstablishConnection = JSON.parse(data)
+        socket.on("establish-connection", async (dataParsed: EstablishConnection) => {
             const { accessToken, userId, username, meetId } = dataParsed
             if (!accessToken || !userId || !username) {
                 socket.disconnect()
