@@ -6,8 +6,8 @@ import type { MeetToUserAndSocket } from "../types/meedToUserAndSocketType"
 export class RouterManager {
     private static instance: RouterManager
     private connectedSocketIds: Set<string> = new Set()
-    private meets: Map<number, mediasoup.types.Router> = new Map() // done insert
-    private meetToUser: Map<number, MeetToUserAndSocket[]> = new Map() // done insert
+    private meets: Map<number, mediasoup.types.Router> = new Map()
+    private meetToUser: Map<number, MeetToUserAndSocket[]> = new Map()
     private socketToMeet: Map<string, number> = new Map()
 
     private constructor() { }
@@ -52,5 +52,24 @@ export class RouterManager {
                 newUserData && this.meetToUser.set(meetId, newUserData)
             }
         }
+    }
+
+    getMeet(socketId: string) {
+        if (this.socketToMeet.has(socketId)) {
+            return this.socketToMeet.get(socketId) as number
+        }
+        return NaN
+    }
+
+    rtpCapabilities(socketId: string) {
+        let meetId = this.getMeet(socketId)
+        if (!meetId) {
+            return null
+        }
+        let router = this.meets.get(meetId)
+        if (!router) {
+            return null
+        }
+        return router.rtpCapabilities
     }
 }

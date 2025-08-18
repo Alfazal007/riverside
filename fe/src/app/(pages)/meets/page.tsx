@@ -88,14 +88,22 @@ export default function MeetsPage() {
                                 </CardHeader>
                                 <CardContent className="space-y-4">
                                     {
-                                        meet.is_host &&
-                                        <Link href={`/add-participants?meetId=${meet.id}`}>
-                                            <Button
-                                                className="w-full bg-green-600 hover:bg-green-700"
-                                            >
-                                                Add participants
-                                            </Button>
-                                        </Link>
+                                        meet.is_host ?
+                                            <Link href={`/add-participants?meetId=${meet.meet_id}`}>
+                                                <Button
+                                                    className="w-full bg-green-600 hover:bg-green-700"
+                                                >
+                                                    Add participants
+                                                </Button>
+                                            </Link> : <>
+                                                <Link href={`/meet-join/${meet.meet_id}/${Cookies.get("userId")}`}>
+                                                    <Button
+                                                        className="w-full bg-green-600 hover:bg-green-700"
+                                                    >
+                                                        Join
+                                                    </Button>
+                                                </Link>
+                                            </>
                                     }
                                 </CardContent>
                             </Card>

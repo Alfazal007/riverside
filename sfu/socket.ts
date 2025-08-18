@@ -1,12 +1,12 @@
 import { redis } from "bun"
 import { io } from "./index"
-import type { EstablishConnection } from "./types/establishConnectionType"
+import type { EstablishConnectionMessage, RtpCapabilitiesMessage } from "./types/establishConnectionType"
 import { checkAuth } from "./components/authChecker"
 import { RouterManager } from "./components/routerManager"
 
 export function addHandlers() {
     io.on("connection", (socket) => {
-        socket.on("establish-connection", async (dataParsed: EstablishConnection) => {
+        socket.on("establish-connection", async (dataParsed: EstablishConnectionMessage) => {
             const { accessToken, userId, username, meetId } = dataParsed
             if (!accessToken || !userId || !username) {
                 socket.disconnect()
@@ -25,8 +25,20 @@ export function addHandlers() {
                 socket.disconnect()
                 return
             }
+            if (socket.disconnected) {
+                console.warn("Tried to create router, but socket already disconnected:", socket.id)
+                return
+            }
             RouterManager.getInstance().trackUser(socket.id)
             RouterManager.getInstance().createRouter(meetId, userId, socket.id)
+        })
+
+        socket.on("rtpCapabilities", callback => {
+            let rtpCapabilities = RouterManager.getInstance().rtpCapabilities(socket.id)
+            if (!rtpCapabilities) {
+                socket.disconnect()
+            }
+            callback({ rtpCapabilities })
         })
 
         socket.on("disconnect", () => {

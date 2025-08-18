@@ -4,14 +4,24 @@ import Cookies from "js-cookie";
 import { io, Socket } from "socket.io-client";
 import { useRouter } from "next/navigation";
 import React, { useEffect, useRef, useState } from "react";
+import * as mediasoupClient from "mediasoup-client";
+import { types as mediasoupTypes } from "mediasoup-client"
 
 export default function({ params }: { params: Promise<{ meetId: string; username: string }> }) {
     const { meetId, username } = React.use(params);
     const router = useRouter()
     const [connected, setConnected] = useState(false)
+    const [establishedConnected, setEstablishedConnected] = useState(false)
     const socketRef = useRef<Socket | null>(null);
     const [dataToSend, setDataToSend] = useState({ accessToken: "", userId: -1, meetId: Number(meetId), username })
+    const [rtpCapabilities, setRtpCapabilities] = useState<mediasoupTypes.RtpCapabilities>();
 
+    useEffect(() => {
+        return () => {
+            console.log("disconnecting sokcet on client")
+            socketRef.current?.disconnect()
+        }
+    }, [])
     useEffect(() => {
         const accessToken = Cookies.get("accessToken")
         const userId = Cookies.get("userId")
@@ -39,10 +49,22 @@ export default function({ params }: { params: Promise<{ meetId: string; username
             socketRef.current.on("disconnect", () => {
                 router.push("/meets")
             })
-            console.log("sending")
             socketRef.current.emit("establish-connection", dataToSend)
+            setEstablishedConnected(true)
         }
     }, [connected, dataToSend])
 
-    return <></>
+    useEffect(() => {
+        if (establishedConnected && socketRef.current) {
+            socketRef.current.emit("rtpCapabilities", async (data: { rtpCapabilities: mediasoupTypes.RtpCapabilities }) => {
+                setRtpCapabilities(data.rtpCapabilities)
+                setTimeout(
+                    async () => {
+                        //await createDevice(data.rtpCapabilities)
+                    }, 2000)
+            })
+        }
+    }, [establishedConnected])
+
+    return <>{JSON.stringify(rtpCapabilities)}</>
 }
