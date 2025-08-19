@@ -1,6 +1,6 @@
 import { redis } from "bun"
 import { io } from "./index"
-import type { EstablishConnectionMessage, RtpCapabilitiesMessage } from "./types/establishConnectionType"
+import type { EstablishConnectionMessage } from "./types/establishConnectionType"
 import { checkAuth } from "./components/authChecker"
 import { RouterManager } from "./components/routerManager"
 import { createWebRtcTransport } from "./components/createTransport"
@@ -33,6 +33,7 @@ export function addHandlers() {
             }
             RouterManager.getInstance().trackUser(socket.id)
             RouterManager.getInstance().createRouter(meetId, userId, socket.id)
+            socket.emit("connection-established")
         })
 
         socket.on("rtpCapabilities", callback => {

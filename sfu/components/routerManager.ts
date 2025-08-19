@@ -10,6 +10,7 @@ export class RouterManager {
     private meets: Map<number, mediasoup.types.Router> = new Map()
     private meetToUser: Map<number, MeetToUserAndSocket[]> = new Map()
     private socketToMeet: Map<string, number> = new Map()
+    // need to check existances
     private transports: { transport: WebRtcTransport, isConsumer: boolean, meetId: number, socketId: string }[] = []
     private producers: { producer: mediasoup.types.Producer, socketId: string, meetId: number }[] = []
     private consumers: { meetId: number, consumer: mediasoup.types.Consumer, socketId: string }[] = [];

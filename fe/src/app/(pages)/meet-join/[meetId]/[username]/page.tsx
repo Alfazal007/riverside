@@ -7,6 +7,7 @@ import React, { useEffect, useRef, useState } from "react";
 import * as mediasoupClient from "mediasoup-client";
 import { types as mediasoupTypes } from "mediasoup-client"
 import { Button } from "@/components/ui/button";
+import { Producer } from "mediasoup-client/types";
 
 type ConsumerTransportDataType = {
     consumerTransport: mediasoupTypes.Transport<mediasoupTypes.AppData>;
@@ -14,6 +15,7 @@ type ConsumerTransportDataType = {
     producerId: string;
     consumer: mediasoupTypes.Consumer<mediasoupTypes.AppData>;
 }
+
 export default function({ params }: { params: Promise<{ meetId: string; username: string }> }) {
     const { meetId, username } = React.use(params);
     const router = useRouter()
@@ -29,7 +31,8 @@ export default function({ params }: { params: Promise<{ meetId: string; username
     const videoRef = useRef<HTMLVideoElement>(null);
     const [audioConsume, setAudioConsume] = useState(true);
     const [videoConsume, setVideoConsume] = useState(true);
-    let audioProducer: mediasoupTypes.Producer, videoProducer: mediasoupTypes.Producer;
+    const audioProducerRef = useRef<null | Producer>(null);
+    const videoProducerRef = useRef<null | Producer>(null);
 
     const audioParamsRef = useRef<any>(null);
     const videoParamsRef = useRef<any>({ params });
@@ -40,28 +43,36 @@ export default function({ params }: { params: Promise<{ meetId: string; username
             return
         }
         if (audioConsume) {
+            if (!audioProducerRef.current) {
+                audioProducerRef.current = await producerTransportState.produce(audioParamsRef.current);
+                audioProducerRef.current.on('trackended', () => {
+                    console.log('audio track ended')
+                })
+                audioProducerRef.current.on('transportclose', () => {
+                    console.log('audio transport ended')
+                })
+            }
             console.log(audioParamsRef.current)
-            audioProducer = await producerTransportState.produce(audioParamsRef.current);
-            audioProducer.on('trackended', () => {
-                console.log('audio track ended')
-            })
-            audioProducer.on('transportclose', () => {
-                console.log('audio transport ended')
-            })
+            audioProducerRef.current.resume()
         } else if (!audioConsume) {
-            audioProducer?.close();
+            audioProducerRef.current?.pause();
         }
         if (videoConsume) {
+            if (!videoProducerRef.current) {
+                videoProducerRef.current = await producerTransportState.produce(videoParamsRef.current);
+                videoProducerRef.current.on('trackended', () => {
+                    console.log('video track ended')
+                })
+                videoProducerRef.current.on('transportclose', () => {
+                    console.log('video transport ended')
+                })
+            }
             console.log(videoParamsRef.current)
-            videoProducer = await producerTransportState.produce(videoParamsRef.current);
-            videoProducer.on('trackended', () => {
-                console.log('video track ended')
-            })
-            videoProducer.on('transportclose', () => {
-                console.log('video transport ended')
-            })
+            videoProducerRef.current.resume()
         } else if (!videoConsume) {
-            videoProducer?.close();
+            console.log("pauseing video")
+            console.log({ videoProducerRef: videoProducerRef.current })
+            videoProducerRef.current?.pause();
         }
     }
 
@@ -93,12 +104,13 @@ export default function({ params }: { params: Promise<{ meetId: string; username
         videoParamsRef.current = { track: stream.getVideoTracks()[0], ...videoParamsRef.current };
         console.log("set data")
         console.log(audioParamsRef.current)
+        setTrackAndData()
     }
 
     useEffect(() => {
-        if (establishedConnected)
+        if (establishedConnected) {
             getLocalStream()
-        setTrackAndData()
+        }
     }, [producerTransportState, audioConsume, videoConsume, establishedConnected])
 
     const deviceRef = useRef<mediasoupClient.types.Device | null>(null);
@@ -132,13 +144,13 @@ export default function({ params }: { params: Promise<{ meetId: string; username
             return
         }
         if (!connected && dataToSend.accessToken) {
-            setConnected(true)
-            socketRef.current = io("http://127.0.0.1:8001");
+            socketRef.current = io("http://127.0.0.1:8001")
             socketRef.current.on("disconnect", () => {
                 router.push("/meets")
             })
+            socketRef.current.on("connection-established", () => { setEstablishedConnected(true) })
             socketRef.current.emit("establish-connection", dataToSend)
-            setEstablishedConnected(true)
+            setConnected(true)
         }
     }, [connected, dataToSend])
 
