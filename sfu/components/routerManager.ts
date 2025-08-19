@@ -3,6 +3,7 @@ import { worker } from ".."
 import { mediaCodecs } from "./codecs"
 import type { MeetToUserAndSocket } from "../types/meedToUserAndSocketType"
 import type { Consumer, WebRtcTransport } from "mediasoup/types"
+import type { Socket } from "socket.io"
 
 export class RouterManager {
     private static instance: RouterManager
@@ -28,11 +29,11 @@ export class RouterManager {
         this.connectedSocketIds.add(socketId)
     }
 
-    async createRouter(meetId: number, userId: number, socketId: string) {
+    async createRouter(meetId: number, userId: number, socketId: string, socket: Socket) {
         if (!this.meetToUser.has(meetId)) {
             this.meetToUser.set(meetId, [])
         }
-        this.meetToUser.get(meetId)?.push({ socketId, userId })
+        this.meetToUser.get(meetId)?.push({ socketId, userId, socket })
         if (!this.meets.has(meetId)) {
             let router = await worker.createRouter({
                 mediaCodecs: mediaCodecs
@@ -162,5 +163,16 @@ export class RouterManager {
     async resumeConsumer(consumerId: string) {
         const consumer = this.consumers.find(consumerData => consumerData.consumer.id === consumerId)
         await consumer?.consumer.resume()
+    }
+
+    otherUserSockets(meetId: number, socketId: string) {
+        let meetToUser = this.meetToUser.get(meetId)
+        let otherSockets: Socket[] = []
+        meetToUser?.forEach((data) => {
+            if (data.socketId != socketId) {
+                otherSockets.push(data.socket)
+            }
+        })
+        return otherSockets
     }
 }

@@ -163,6 +163,18 @@ export default function({ params }: { params: Promise<{ meetId: string; username
                         deviceRef.current = new mediasoupClient.Device()
                         await deviceRef.current.load({ routerRtpCapabilities: data.rtpCapabilities })
                         setDeviceCreated(true)
+
+                        socketRef.current?.on('newest-producer', async (producerId: string) => {
+                            await signalNewConsumerTransport(producerId, Number(meetId))
+                        })
+
+                        socketRef.current?.emit('getProducers', Number(meetId), (producerIds: string[]) => {
+                            console.log("get producers called")
+                            producerIds.forEach(async (id) => {
+                                await signalNewConsumerTransport(id, Number(meetId))
+                            })
+                        })
+
                     }, 2000)
             })
         }
@@ -236,13 +248,14 @@ export default function({ params }: { params: Promise<{ meetId: string; username
                                     let itemToRemove = document.getElementById(`td-${remoteProducerId}`) as HTMLElement
                                     document.getElementById("videoContainer")?.removeChild(itemToRemove)
                                 })
-
-                                socketRef.current?.emit('getProducers', Number(meetId), (producerIds: string[]) => {
-                                    console.log("get producers called")
-                                    producerIds.forEach(async (id) => {
-                                        await signalNewConsumerTransport(id, Number(meetId))
-                                    })
-                                })
+                                /*
+                                                                socketRef.current?.emit('getProducers', Number(meetId), (producerIds: string[]) => {
+                                                                    console.log("get producers called")
+                                                                    producerIds.forEach(async (id) => {
+                                                                        await signalNewConsumerTransport(id, Number(meetId))
+                                                                    })
+                                                                })
+                                                                        */
                             }
                             else { console.log("no producer") }
                         })

@@ -32,7 +32,7 @@ export function addHandlers() {
                 return
             }
             RouterManager.getInstance().trackUser(socket.id)
-            RouterManager.getInstance().createRouter(meetId, userId, socket.id)
+            RouterManager.getInstance().createRouter(meetId, userId, socket.id, socket)
             socket.emit("connection-established")
         })
 
@@ -95,6 +95,9 @@ export function addHandlers() {
             callback({
                 id: producer.id,
                 producersExist: RouterManager.getInstance().hasProducers(meetId)
+            })
+            RouterManager.getInstance().otherUserSockets(meetId, socket.id).forEach((socketToSend) => {
+                socketToSend.emit("newest-producer", producer.id)
             })
         })
 
