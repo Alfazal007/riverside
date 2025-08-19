@@ -175,6 +175,15 @@ export default function({ params }: { params: Promise<{ meetId: string; username
                             })
                         })
 
+                        socketRef.current?.on('producer-closed', ({ remoteProducerId }) => {
+                            const producerToClose = consumerTransports.find(transportData => transportData.producerId === remoteProducerId)
+                            producerToClose?.consumerTransport.close()
+                            producerToClose?.consumer.close()
+                            let newConsumerTransports = consumerTransports.filter(transportData => transportData.producerId !== remoteProducerId)
+                            setConsumerTransports(newConsumerTransports)
+                            document.getElementById(`td-${remoteProducerId}`)?.remove()
+                        })
+
                     }, 2000)
             })
         }
@@ -234,20 +243,6 @@ export default function({ params }: { params: Promise<{ meetId: string; username
                             if (producersExist) {
                                 socketRef.current?.on('new-producer', ({ producerId }) => signalNewConsumerTransport(producerId, Number(meetId)))
 
-                                socketRef.current?.on('producer-closed', ({ remoteProducerId }) => {
-                                    // server notification is received when a producer is closed
-                                    // we need to close the client-side consumer and associated transport
-                                    const producerToClose = consumerTransports.find(transportData => transportData.producerId === remoteProducerId)
-                                    producerToClose?.consumerTransport.close()
-                                    producerToClose?.consumer.close()
-
-                                    // remove the consumer transport from the list
-                                    let newConsumerTransports = consumerTransports.filter(transportData => transportData.producerId !== remoteProducerId)
-                                    setConsumerTransports(newConsumerTransports)
-
-                                    let itemToRemove = document.getElementById(`td-${remoteProducerId}`) as HTMLElement
-                                    document.getElementById("videoContainer")?.removeChild(itemToRemove)
-                                })
                                 /*
                                                                 socketRef.current?.emit('getProducers', Number(meetId), (producerIds: string[]) => {
                                                                     console.log("get producers called")

@@ -182,6 +182,20 @@ export function addHandlers() {
         })
 
         socket.on("disconnect", () => {
+            const routerManager = RouterManager.getInstance()
+            const meetId = routerManager.getMeet(socket.id)
+            const userProducers = routerManager["producers"].filter(
+                (p) => p.socketId === socket.id
+            )
+            userProducers.forEach(({ producer }) => {
+                routerManager.otherUserSockets(meetId, socket.id).forEach((otherSocket) => {
+                    otherSocket.emit("producer-closed", { remoteProducerId: producer.id })
+                })
+                if (!producer.closed) {
+                    producer.close()
+                }
+                routerManager.removeProducer(producer.id)
+            })
             RouterManager.getInstance().removeUser(socket.id)
             console.log("User disconnected:", socket.id)
         })
