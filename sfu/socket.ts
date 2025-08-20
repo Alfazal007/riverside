@@ -193,6 +193,11 @@ export function addHandlers() {
                         ]
                     }
                 })
+                const newRecording = await prisma.recording.create({
+                    data: {
+                        meet_id: meetId
+                    }
+                })
                 if (!meets) {
                     return
                 }

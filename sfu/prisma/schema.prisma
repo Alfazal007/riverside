@@ -26,6 +26,7 @@ model Meet {
   is_finished  Boolean       @default(false)
   host         User          @relation("UserToHost", fields: [hostId], references: [id], onDelete: Cascade)
   participants Participant[]
+  recordings   Recording[]
 
   @@map("meets")
 }
@@ -40,4 +41,12 @@ model Participant {
 
   @@unique([meet_id, user_id])
   @@map("participants")
+}
+
+model Recording {
+  id      Int  @id @default(autoincrement())
+  meet_id Int
+  meet    Meet @relation(fields: [meet_id], references: [id], onDelete: Cascade)
+
+  @@map("recordings")
 }
