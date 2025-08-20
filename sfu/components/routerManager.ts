@@ -8,6 +8,7 @@ import type { Socket } from "socket.io"
 export class RouterManager {
     private static instance: RouterManager
     private connectedSocketIds: Set<string> = new Set()
+    private isRecording: Map<number, boolean> = new Map()
     private meets: Map<number, mediasoup.types.Router> = new Map()
     private meetToUser: Map<number, MeetToUserAndSocket[]> = new Map()
     private socketToMeet: Map<string, number> = new Map()
@@ -51,6 +52,7 @@ export class RouterManager {
         if (meetId) {
             let meets = this.meetToUser.get(meetId)
             if (meets && meets.length <= 1) {
+                this.isRecording.delete(meetId)
                 this.meetToUser.delete(meetId)
                 this.meets.delete(meetId)
             } else {
@@ -188,5 +190,18 @@ export class RouterManager {
             }
         }
         return null
+    }
+
+    updateRecording(meetId: number, recording: boolean) {
+        this.isRecording.set(meetId, recording)
+    }
+
+
+    getRecording(meetId: number) {
+        let response = this.isRecording.get(meetId)
+        if (response) {
+            return response
+        }
+        return false
     }
 }

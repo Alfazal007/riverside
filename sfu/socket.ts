@@ -65,7 +65,6 @@ export function addHandlers() {
             await transport?.transport.connect({
                 dtlsParameters: dtlsParameters
             });
-            console.log("producer transport connceted")
         })
 
         socket.on("transport-produce", async ({
@@ -88,7 +87,6 @@ export function addHandlers() {
             }
             RouterManager.getInstance().addProducer(producer, socket.id, meetId);
             producer?.on('transportclose', () => {
-                console.log('transport for this producer closed ')
                 producer.close()
                 RouterManager.getInstance().removeProducer(producer.id);
                 RouterManager.getInstance().removeTransport(socket.id);
@@ -103,7 +101,6 @@ export function addHandlers() {
         })
 
         socket.on('transport-recv-connect', async ({ dtlsParameters, serverConsumerTransportId }) => {
-            console.log(`DTLS PARAMS: ${dtlsParameters}`)
             let transport = RouterManager.getInstance().getConsumerTranport(serverConsumerTransportId);
             await transport?.connect({ dtlsParameters })
         })
@@ -115,11 +112,6 @@ export function addHandlers() {
                 if (!router || !consumerTransport) {
                     return
                 }
-                // check if the router can consume the specified producer
-                console.log("\n\n\n\n\n can router consumer \n\n\n\n", router.canConsume({
-                    producerId: remoteProducerId,
-                    rtpCapabilities
-                }))
                 if (router.canConsume({
                     producerId: remoteProducerId,
                     rtpCapabilities
@@ -172,13 +164,11 @@ export function addHandlers() {
         })
 
         socket.on("getProducers", (meetId: number, callback) => {
-            console.log("get producers called")
             let producerList = RouterManager.getInstance().getProduerList(meetId, socket.id)
             callback(producerList)
         })
 
         socket.on('consumer-resume', async ({ serverConsumerId }) => {
-            console.log('consumer resume')
             await RouterManager.getInstance().resumeConsumer(serverConsumerId)
         })
 
@@ -208,6 +198,7 @@ export function addHandlers() {
                 }
             } catch (err) { return }
             let otherSockets = RouterManager.getInstance().otherUserSockets(meetId, socket.id)
+            RouterManager.getInstance().updateRecording(meetId, true)
             otherSockets.push(socket)
             otherSockets.forEach((sock) => {
                 sock.emit("start-recording")
@@ -235,7 +226,6 @@ export function addHandlers() {
                         ]
                     }
                 })
-                console.log({ meets })
                 if (!meets) {
                     return
                 }
@@ -243,11 +233,17 @@ export function addHandlers() {
                 console.log({ err })
                 return
             }
+            RouterManager.getInstance().updateRecording(meetId, false)
             let otherSockets = RouterManager.getInstance().otherUserSockets(meetId, socket.id)
             otherSockets.push(socket)
             otherSockets.forEach((sock) => {
                 sock.emit("stop-recording")
             })
+        })
+
+        socket.on("recording", (meetId: number) => {
+            let result = RouterManager.getInstance().getRecording(meetId)
+            socket.emit("recording", result)
         })
 
         socket.on("disconnect", () => {

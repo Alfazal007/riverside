@@ -185,6 +185,8 @@ export default function({ params }: { params: Promise<{ meetId: string; username
                         await deviceRef.current.load({ routerRtpCapabilities: data.rtpCapabilities })
                         setDeviceCreated(true)
 
+                        socketRef.current?.emit("recording", Number(meetId))
+
                         socketRef.current?.on('newest-producer', async (producerId: string) => {
                             await signalNewConsumerTransport(producerId, Number(meetId))
                         })
@@ -212,6 +214,13 @@ export default function({ params }: { params: Promise<{ meetId: string; username
                         socketRef.current?.on("stop-recording", () => {
                             setRecording(false)
                         })
+
+                        socketRef.current?.on("recording", (isRecording: boolean) => {
+                            if (isRecording) {
+                                setRecording(true)
+                            }
+                        })
+
                     }, 2000)
             })
         }
@@ -406,13 +415,10 @@ export default function({ params }: { params: Promise<{ meetId: string; username
         })
     }
 
-    useEffect(() => {
-        console.log({ recording })
-    }, [recording])
-
     return (
         <>
             <div>
+                Recording = {JSON.stringify(recording)}
                 {
                     host &&
                     <Button onClick={() => {
