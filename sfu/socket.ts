@@ -5,6 +5,7 @@ import { checkAuth } from "./components/authChecker"
 import { RouterManager } from "./components/routerManager"
 import { createWebRtcTransport } from "./components/createTransport"
 import * as mediasoup from "mediasoup"
+import { prisma } from "./prisma"
 
 export function addHandlers() {
     io.on("connection", (socket) => {
@@ -179,6 +180,74 @@ export function addHandlers() {
         socket.on('consumer-resume', async ({ serverConsumerId }) => {
             console.log('consumer resume')
             await RouterManager.getInstance().resumeConsumer(serverConsumerId)
+        })
+
+        socket.on("start-recording", async (meetId: number) => {
+            try {
+                const userId = RouterManager.getInstance().userIdFromSocketAndMeet(meetId, socket.id)
+                if (!userId) {
+                    return
+                }
+                const meets = await prisma.participant.findFirst({
+                    where: {
+                        AND: [
+                            {
+                                is_host: true
+                            },
+                            {
+                                meet_id: meetId
+                            },
+                            {
+                                user_id: userId
+                            }
+                        ]
+                    }
+                })
+                if (!meets) {
+                    return
+                }
+            } catch (err) { return }
+            let otherSockets = RouterManager.getInstance().otherUserSockets(meetId, socket.id)
+            otherSockets.push(socket)
+            otherSockets.forEach((sock) => {
+                sock.emit("start-recording")
+            })
+        })
+
+        socket.on("stop-recording", async (meetId: number) => {
+            try {
+                const userId = RouterManager.getInstance().userIdFromSocketAndMeet(meetId, socket.id)
+                if (!userId) {
+                    return
+                }
+                const meets = await prisma.participant.findFirst({
+                    where: {
+                        AND: [
+                            {
+                                is_host: true
+                            },
+                            {
+                                meet_id: meetId
+                            },
+                            {
+                                user_id: userId
+                            }
+                        ]
+                    }
+                })
+                console.log({ meets })
+                if (!meets) {
+                    return
+                }
+            } catch (err) {
+                console.log({ err })
+                return
+            }
+            let otherSockets = RouterManager.getInstance().otherUserSockets(meetId, socket.id)
+            otherSockets.push(socket)
+            otherSockets.forEach((sock) => {
+                sock.emit("stop-recording")
+            })
         })
 
         socket.on("disconnect", () => {

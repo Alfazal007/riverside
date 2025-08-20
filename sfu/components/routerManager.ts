@@ -175,4 +175,18 @@ export class RouterManager {
         })
         return otherSockets
     }
+
+    userIdFromSocketAndMeet(meetId: number, socketId: string) {
+        let meettouser = this.meetToUser.get(meetId)
+        if (!meettouser) {
+            return null
+        }
+        for (let i = 0; i < meettouser.length; i++) {
+            let meet = meettouser[i]
+            if (meet?.socketId == socketId) {
+                return meet.userId
+            }
+        }
+        return null
+    }
 }

@@ -10,7 +10,9 @@ use sqlx::postgres::PgPoolOptions;
 
 use crate::{
     controllers::{
-        meets::{add_participant, create_meet, get_meet_info, get_meets, remove_participant},
+        meets::{
+            add_participant, create_meet, get_meet_info, get_meets, is_host, remove_participant,
+        },
         users::{signin, signup, whoami},
     },
     middlewares::auth_middleware,
@@ -77,7 +79,8 @@ async fn main() -> std::io::Result<()> {
                     .wrap(from_fn(auth_middleware::auth_middleware))
                     .route("/create", web::post().to(create_meet::create_meet))
                     .route("/get-meet", web::post().to(get_meet_info::get_meet_info))
-                    .route("/all-meets", web::get().to(get_meets::get_meets)),
+                    .route("/all-meets", web::get().to(get_meets::get_meets))
+                    .route("/is-host", web::post().to(is_host::is_host)),
             )
             .service(
                 web::scope("/api/participant")

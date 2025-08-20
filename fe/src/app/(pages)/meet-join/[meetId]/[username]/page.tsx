@@ -8,6 +8,8 @@ import * as mediasoupClient from "mediasoup-client";
 import { types as mediasoupTypes } from "mediasoup-client"
 import { Button } from "@/components/ui/button";
 import { Producer } from "mediasoup-client/types";
+import axios from "axios";
+import { authUrl } from "../../../../../../constants";
 
 type ConsumerTransportDataType = {
     consumerTransport: mediasoupTypes.Transport<mediasoupTypes.AppData>;
@@ -33,10 +35,28 @@ export default function({ params }: { params: Promise<{ meetId: string; username
     const [videoConsume, setVideoConsume] = useState(true);
     const audioProducerRef = useRef<null | Producer>(null);
     const videoProducerRef = useRef<null | Producer>(null);
+    const [recording, setRecording] = useState<boolean>(false)
+    const [host, setHost] = useState<boolean>(false)
 
     const audioParamsRef = useRef<any>(null);
     const videoParamsRef = useRef<any>({ params });
 
+    async function getHostData() {
+        try {
+            const response = await axios.post(`${authUrl}/api/meet/is-host`, {
+                meet_id: Number(meetId)
+            }, { withCredentials: true })
+            console.log({ response })
+            if (response.status == 200) {
+                setHost(true)
+            }
+        } catch (err) { }
+    }
+    /*
+        useEffect(() => {
+            getHostData()
+        }, [])
+    */
     async function setTrackAndData() {
         if (!producerTransportState) {
             console.log("early return")
@@ -116,6 +136,7 @@ export default function({ params }: { params: Promise<{ meetId: string; username
     const deviceRef = useRef<mediasoupClient.types.Device | null>(null);
 
     useEffect(() => {
+        getHostData()
         return () => {
             console.log("disconnecting sokcet on client")
             socketRef.current?.disconnect()
@@ -184,6 +205,13 @@ export default function({ params }: { params: Promise<{ meetId: string; username
                             document.getElementById(`td-${remoteProducerId}`)?.remove()
                         })
 
+                        socketRef.current?.on("start-recording", () => {
+                            setRecording(true)
+                        })
+
+                        socketRef.current?.on("stop-recording", () => {
+                            setRecording(false)
+                        })
                     }, 2000)
             })
         }
@@ -242,15 +270,6 @@ export default function({ params }: { params: Promise<{ meetId: string; username
                             callback({ id })
                             if (producersExist) {
                                 socketRef.current?.on('new-producer', ({ producerId }) => signalNewConsumerTransport(producerId, Number(meetId)))
-
-                                /*
-                                                                socketRef.current?.emit('getProducers', Number(meetId), (producerIds: string[]) => {
-                                                                    console.log("get producers called")
-                                                                    producerIds.forEach(async (id) => {
-                                                                        await signalNewConsumerTransport(id, Number(meetId))
-                                                                    })
-                                                                })
-                                                                        */
                             }
                             else { console.log("no producer") }
                         })
@@ -387,9 +406,24 @@ export default function({ params }: { params: Promise<{ meetId: string; username
         })
     }
 
+    useEffect(() => {
+        console.log({ recording })
+    }, [recording])
+
     return (
         <>
             <div>
+                {
+                    host &&
+                    <Button onClick={() => {
+                        let message = recording ? "stop-recording" : "start-recording"
+                        socketRef.current?.emit(message, Number(meetId))
+                    }}>
+                        {
+                            recording ? "Stop Recording" : "Start Recording"
+                        }
+                    </Button>
+                }
                 <video ref={videoRef} autoPlay className="video" muted hidden={!videoConsume} />
                 <Button onClick={() => { setAudioConsume((prev) => !prev) }}>
                     {
