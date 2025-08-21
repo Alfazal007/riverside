@@ -54,11 +54,7 @@ export default function({ params }: { params: Promise<{ meetId: string; username
             }
         } catch (err) { }
     }
-    /*
-        useEffect(() => {
-            getHostData()
-        }, [])
-    */
+
     async function setTrackAndData() {
         if (!producerTransportState) {
             console.log("early return")
@@ -74,7 +70,6 @@ export default function({ params }: { params: Promise<{ meetId: string; username
                     console.log('audio transport ended')
                 })
             }
-            console.log(audioParamsRef.current)
             audioProducerRef.current.resume()
         } else if (!audioConsume) {
             audioProducerRef.current?.pause();
@@ -89,16 +84,18 @@ export default function({ params }: { params: Promise<{ meetId: string; username
                     console.log('video transport ended')
                 })
             }
-            console.log(videoParamsRef.current)
             videoProducerRef.current.resume()
         } else if (!videoConsume) {
-            console.log("pauseing video")
-            console.log({ videoProducerRef: videoProducerRef.current })
             videoProducerRef.current?.pause();
         }
     }
 
     const getLocalStream = () => {
+        if (!audioConsume && !videoConsume) {
+            audioProducerRef.current?.pause()
+            videoProducerRef.current?.pause()
+            return
+        }
         navigator.mediaDevices.getUserMedia({
             audio: audioConsume,
             video: videoConsume && {
@@ -124,8 +121,6 @@ export default function({ params }: { params: Promise<{ meetId: string; username
         }
         audioParamsRef.current = { track: stream.getAudioTracks()[0], ...audioParamsRef.current };
         videoParamsRef.current = { track: stream.getVideoTracks()[0], ...videoParamsRef.current };
-        console.log("set data")
-        console.log(audioParamsRef.current)
         setTrackAndData()
     }
 
