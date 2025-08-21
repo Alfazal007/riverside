@@ -10,6 +10,8 @@ import { Button } from "@/components/ui/button";
 import { Producer } from "mediasoup-client/types";
 import axios from "axios";
 import { authUrl } from "../../../../../../constants";
+import { timeOfServer } from "@/commonFunctions/callTime";
+import { toast } from "sonner";
 
 type ConsumerTransportDataType = {
     consumerTransport: mediasoupTypes.Transport<mediasoupTypes.AppData>;
@@ -207,20 +209,18 @@ export default function({ params }: { params: Promise<{ meetId: string; username
                             document.getElementById(`td-${remoteProducerId}`)?.remove()
                         })
 
-                        socketRef.current?.on("start-recording", () => {
-                            setRecording(true)
+                        socketRef.current?.on("start-recording", async () => {
+                            startRecordingAndSetJointimestamp()
                         })
 
-                        socketRef.current?.on("stop-recording", () => {
+                        socketRef.current?.on("stop-recording", async () => {
                             setRecording(false)
                         })
-
                         socketRef.current?.on("recording", (isRecording: boolean) => {
                             if (isRecording) {
-                                setRecording(true)
+                                startRecordingAndSetJointimestamp()
                             }
                         })
-
                     }, 2000)
             })
         }
@@ -347,6 +347,31 @@ export default function({ params }: { params: Promise<{ meetId: string; username
                 return
             }
         })
+    }
+
+    async function startRecordingAndSetJointimestamp() {
+        const time = await timeOfServer()
+        if (time == -1) {
+            toast("Recording server down")
+            router.push("/meets")
+            return
+        }
+        setRecording(true)
+        try {
+            const response = await axios.post(`${authUrl}/api/meet/join-recording`, {
+                join_time: time,
+                meet_id: Number(meetId)
+            }, { withCredentials: true })
+            if (response.status != 200) {
+                toast("Recording server down")
+                router.push("/meets")
+                return
+            }
+        } catch (err) {
+            toast("Issue recording")
+            router.push("/meets")
+            return
+        }
     }
 
     const connectRecvTransport = async (consumerTransport: mediasoupTypes.Transport, remoteProducerId: string, serverConsumerTransportId: string, meetId: number) => {

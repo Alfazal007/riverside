@@ -6,6 +6,8 @@ import { RouterManager } from "./components/routerManager"
 import { createWebRtcTransport } from "./components/createTransport"
 import * as mediasoup from "mediasoup"
 import { prisma } from "./prisma"
+import type { Socket } from "socket.io"
+import { updateLanguageServiceSourceFile } from "typescript"
 
 export function addHandlers() {
     io.on("connection", (socket) => {
@@ -202,6 +204,7 @@ export function addHandlers() {
                     return
                 }
             } catch (err) { return }
+            RouterManager.getInstance().setHost(meetId, socket.id)
             let otherSockets = RouterManager.getInstance().otherUserSockets(meetId, socket.id)
             RouterManager.getInstance().updateRecording(meetId, true)
             otherSockets.push(socket)
@@ -238,11 +241,14 @@ export function addHandlers() {
                 console.log({ err })
                 return
             }
+            RouterManager.getInstance().removeHost(meetId, socket.id)
             RouterManager.getInstance().updateRecording(meetId, false)
             let otherSockets = RouterManager.getInstance().otherUserSockets(meetId, socket.id)
+            // update database
             otherSockets.push(socket)
+            RouterManager.getInstance().updateDatabaseTimestampRecordEndForAllUsersInMeet(meetId)
             otherSockets.forEach((sock) => {
-                sock.emit("stop-recording")
+                sock.emit("stop-recording") // goes to the frontend
             })
         })
 
@@ -266,8 +272,27 @@ export function addHandlers() {
                 }
                 routerManager.removeProducer(producer.id)
             })
-            RouterManager.getInstance().removeUser(socket.id)
-            console.log("User disconnected:", socket.id)
+            updateDatabaseAboutUserExit(meetId, socket)
         })
     })
+}
+
+function updateDatabaseAboutUserExit(meetId: number, socket: Socket) {
+    let isHostDisconnecting = RouterManager.getInstance().removeHost(meetId, socket.id)
+    if (isHostDisconnecting) {
+        let otherSockets = RouterManager.getInstance().otherUserSockets(meetId, socket.id)
+        otherSockets.push(socket)
+        otherSockets.forEach((sock) => {
+            sock.emit("stop-recording")// this goes to the frontend
+        })
+        RouterManager.getInstance().updateDatabaseTimestampRecordEndForAllUsersInMeet(meetId)
+        RouterManager.getInstance().updateRecording(meetId, false)
+    } else if (RouterManager.getInstance().getRecording(meetId)) {
+        console.log("is it still recording?")
+        console.log(RouterManager.getInstance().getRecording(meetId))
+        // is there an ongoing recording?
+        RouterManager.getInstance().updateDatabaseTimestampRecordEnd(meetId, socket.id)
+    }
+    RouterManager.getInstance().removeUser(socket.id)
+    console.log("User disconnected:", socket.id)
 }

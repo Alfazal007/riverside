@@ -15,6 +15,7 @@ model User {
   password     String
   meetsHosted  Meet[]        @relation("UserToHost")
   participants Participant[]
+  RecordEvent  RecordEvent[]
 
   @@map("users")
 }
@@ -27,6 +28,8 @@ model Meet {
   host         User          @relation("UserToHost", fields: [hostId], references: [id], onDelete: Cascade)
   participants Participant[]
   recordings   Recording[]
+
+  recordEvents RecordEvent[]
 
   @@map("meets")
 }
@@ -48,5 +51,29 @@ model Recording {
   meet_id Int
   meet    Meet @relation(fields: [meet_id], references: [id], onDelete: Cascade)
 
+  recordEvents RecordEvent[]
+
   @@map("recordings")
+}
+
+enum EventAction {
+  join
+  left
+
+  @@map("event_action") 
+}
+
+model RecordEvent {
+  id           Int         @id @default(autoincrement())
+  recording_id Int
+  action       EventAction
+  user_id      Int
+  meet_id      Int
+  timestamp    BigInt
+
+  meet          Meet         @relation(fields: [meet_id], references: [id], onDelete: Cascade)
+  user          User         @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  recording     Recording    @relation(fields: [recording_id], references: [id], onDelete: Cascade)
+
+  @@map("recordevents")
 }
