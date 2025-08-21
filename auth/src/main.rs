@@ -101,6 +101,11 @@ async fn main() -> std::io::Result<()> {
                         web::post().to(remove_participant::remove_participant),
                     ),
             )
+            .service(
+                web::scope("/video")
+                    .wrap(from_fn(auth_middleware::auth_middleware))
+                    .route("/upload", web::post().to(add_participant::add_participant)),
+            )
             .service(web::scope("/api").route("/time", web::get().to(get_time::get_time)))
     })
     .bind(("127.0.0.1", 8000))?
