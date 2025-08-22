@@ -53,7 +53,7 @@ model Recording {
 
   recordEvents RecordEvent[]
 
-  combineVideo CombineVideo?
+  combineVideo  CombineVideo?
 
   @@map("recordings")
 }
@@ -73,9 +73,9 @@ model RecordEvent {
   meet_id      Int
   timestamp    BigInt
 
-  meet      Meet      @relation(fields: [meet_id], references: [id], onDelete: Cascade)
-  user      User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  recording Recording @relation(fields: [recording_id], references: [id], onDelete: Cascade)
+  meet          Meet         @relation(fields: [meet_id], references: [id], onDelete: Cascade)
+  user          User         @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  recording     Recording    @relation(fields: [recording_id], references: [id], onDelete: Cascade)
 
   @@map("recordevents")
 }
@@ -83,7 +83,8 @@ model RecordEvent {
 model CombineVideo {
   recording_id Int       @id
   compiled     Boolean   @default(false)
-  recording    Recording @relation(fields: [recording_id], references: [id], onDelete: Cascade)
+
+  recording     Recording    @relation(fields: [recording_id], references: [id], onDelete: Cascade)
 
   @@map("combine_video")
 }
