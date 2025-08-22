@@ -12,6 +12,8 @@ import axios from "axios";
 import { authUrl } from "../../../../../../constants";
 import { timeOfServer } from "@/commonFunctions/callTime";
 import { toast } from "sonner";
+import { urlCreator } from "@/commonFunctions/getSignatureAndReturnUrl";
+import { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
 
 type ConsumerTransportDataType = {
     consumerTransport: mediasoupTypes.Transport<mediasoupTypes.AppData>;
@@ -20,21 +22,41 @@ type ConsumerTransportDataType = {
     consumer: mediasoupTypes.Consumer<mediasoupTypes.AppData>;
 }
 
-function recorderToStreamToServer(stream: MediaStream, meetId: number) {
+function recorderToStreamToServer(stream: MediaStream, meetId: number, router: AppRouterInstance) {
     if (!stream) {
         console.error("No stream available to record")
-        return
+        return null
     }
-    const recorder = new MediaRecorder(stream)
+    const recorder = new MediaRecorder(stream, {
+        mimeType: "video/webm;codecs=vp8"
+    })
     recorder.ondataavailable = async (event) => {
         if (event.data && event.data.size > 0) {
             try {
+                const signatureData = await urlCreator(meetId)
+                if (!signatureData) {
+                    router.push("/meets")
+                    return
+                }
+                const { api_key, cloudinaryUploadUrl, public_id, signature, timestamp } = signatureData
                 const formData = new FormData()
-                formData.append("chunk", event.data, `chunk-${Date.now()}.webm`)
-                await fetch(`${authUrl}/video/upload?meet_id=${meetId}`, {
+                formData.append("file", event.data)
+                formData.append("api_key", api_key)
+                formData.append("timestamp", String(timestamp))
+                formData.append("signature", signature)
+                formData.append("public_id", public_id)
+                formData.append("resource_type", "raw")
+                const res = await fetch(cloudinaryUploadUrl, {
                     method: "POST",
                     body: formData,
                 })
+                if (!res.ok) {
+                    console.log({ res })
+                    router.push("/meets")
+                    return
+                } else {
+                    console.log("uploaded one")
+                }
             } catch (err) {
                 console.error("Upload failed:", err)
             }
@@ -117,10 +139,9 @@ export default function({ params }: { params: Promise<{ meetId: string; username
 
     useEffect(() => {
         if (recording) {
-            recorderRef.current?.start(10000) // chunks of size 10 seconds
+            recorderRef.current?.start(10000)
         } else {
             recorderRef.current?.stop()
-            recorderRef.current = null
         }
     }, [recording])
 
@@ -152,184 +173,116 @@ export default function({ params }: { params: Promise<{ meetId: string; username
     const streamSuccess = (stream: any) => {
         if (videoRef.current && stream) {
             if (!recorderRef.current) {
-                recorderRef.current = recorderToStreamToServer(stream, Number(meetId))
+                recorderRef.current = recorderToStreamToServer(stream, Number(meetId), router)
             }
             videoRef.current.srcObject = stream;
             audioParamsRef.current = { track: stream.getAudioTracks()[0], ...audioParamsRef.current };
             videoParamsRef.current = { track: stream.getVideoTracks()[0], ...videoParamsRef.current };
             setTrackAndData()
         }
+    }
+    useEffect(() => {
+        if (establishedConnected) {
+            getLocalStream()
+        }
+    }, [producerTransportState, audioConsume, videoConsume, establishedConnected])
 
-        useEffect(() => {
-            if (establishedConnected) {
-                getLocalStream()
+    const deviceRef = useRef<mediasoupClient.types.Device | null>(null);
+
+    useEffect(() => {
+        getHostData()
+        return () => {
+            console.log("disconnecting sokcet on client")
+            recorderRef.current?.stop()
+            socketRef.current?.disconnect()
+        }
+    }, [])
+
+    useEffect(() => {
+        const accessToken = Cookies.get("accessToken")
+        const userId = Cookies.get("userId")
+        if (!accessToken || !userId) {
+            router.push("/login")
+            return
+        }
+        setDataToSend((prev) => {
+            return {
+                ...prev,
+                accessToken,
+                userId: Number(userId)
             }
-        }, [producerTransportState, audioConsume, videoConsume, establishedConnected])
+        })
+    }, [])
 
-        const deviceRef = useRef<mediasoupClient.types.Device | null>(null);
-
-        useEffect(() => {
-            getHostData()
-            return () => {
-                console.log("disconnecting sokcet on client")
-                socketRef.current?.disconnect()
-            }
-        }, [])
-
-        useEffect(() => {
-            const accessToken = Cookies.get("accessToken")
-            const userId = Cookies.get("userId")
-            if (!accessToken || !userId) {
-                router.push("/login")
-                return
-            }
-            setDataToSend((prev) => {
-                return {
-                    ...prev,
-                    accessToken,
-                    userId: Number(userId)
-                }
-            })
-        }, [])
-
-        useEffect(() => {
-            if (isNaN(Number(meetId))) {
+    useEffect(() => {
+        if (isNaN(Number(meetId))) {
+            router.push("/meets")
+            return
+        }
+        if (!connected && dataToSend.accessToken) {
+            console.log("connecting to socket")
+            socketRef.current = io("http://127.0.0.1:8001")
+            socketRef.current.on("disconnect", () => {
                 router.push("/meets")
-                return
-            }
-            if (!connected && dataToSend.accessToken) {
-                socketRef.current = io("http://127.0.0.1:8001")
-                socketRef.current.on("disconnect", () => {
-                    router.push("/meets")
-                })
-                socketRef.current.on("connection-established", () => { setEstablishedConnected(true) })
-                socketRef.current.emit("establish-connection", dataToSend)
-                setConnected(true)
-            }
-        }, [connected, dataToSend])
+            })
+            socketRef.current.on("connection-established", () => { setEstablishedConnected(true) })
+            socketRef.current.emit("establish-connection", dataToSend)
+            setConnected(true)
+        }
+    }, [connected, dataToSend])
 
-        useEffect(() => {
-            if (establishedConnected && socketRef.current) {
-                socketRef.current.emit("rtpCapabilities", async (data: { rtpCapabilities: mediasoupTypes.RtpCapabilities }) => {
-                    setRtpCapabilities(data.rtpCapabilities)
-                    setTimeout(
-                        async () => {
-                            deviceRef.current = new mediasoupClient.Device()
-                            await deviceRef.current.load({ routerRtpCapabilities: data.rtpCapabilities })
-                            setDeviceCreated(true)
+    useEffect(() => {
+        if (establishedConnected && socketRef.current) {
+            socketRef.current.emit("rtpCapabilities", async (data: { rtpCapabilities: mediasoupTypes.RtpCapabilities }) => {
+                setRtpCapabilities(data.rtpCapabilities)
+                setTimeout(
+                    async () => {
+                        deviceRef.current = new mediasoupClient.Device()
+                        await deviceRef.current.load({ routerRtpCapabilities: data.rtpCapabilities })
+                        setDeviceCreated(true)
 
-                            socketRef.current?.emit("recording", Number(meetId))
+                        socketRef.current?.emit("recording", Number(meetId))
 
-                            socketRef.current?.on('newest-producer', async (producerId: string) => {
-                                await signalNewConsumerTransport(producerId, Number(meetId))
+                        socketRef.current?.on('newest-producer', async (producerId: string) => {
+                            await signalNewConsumerTransport(producerId, Number(meetId))
+                        })
+
+                        socketRef.current?.emit('getProducers', Number(meetId), (producerIds: string[]) => {
+                            console.log("get producers called")
+                            producerIds.forEach(async (id) => {
+                                await signalNewConsumerTransport(id, Number(meetId))
                             })
+                        })
 
-                            socketRef.current?.emit('getProducers', Number(meetId), (producerIds: string[]) => {
-                                console.log("get producers called")
-                                producerIds.forEach(async (id) => {
-                                    await signalNewConsumerTransport(id, Number(meetId))
-                                })
-                            })
+                        socketRef.current?.on('producer-closed', ({ remoteProducerId }) => {
+                            const producerToClose = consumerTransports.find(transportData => transportData.producerId === remoteProducerId)
+                            producerToClose?.consumerTransport.close()
+                            producerToClose?.consumer.close()
+                            let newConsumerTransports = consumerTransports.filter(transportData => transportData.producerId !== remoteProducerId)
+                            setConsumerTransports(newConsumerTransports)
+                            document.getElementById(`td-${remoteProducerId}`)?.remove()
+                        })
 
-                            socketRef.current?.on('producer-closed', ({ remoteProducerId }) => {
-                                const producerToClose = consumerTransports.find(transportData => transportData.producerId === remoteProducerId)
-                                producerToClose?.consumerTransport.close()
-                                producerToClose?.consumer.close()
-                                let newConsumerTransports = consumerTransports.filter(transportData => transportData.producerId !== remoteProducerId)
-                                setConsumerTransports(newConsumerTransports)
-                                document.getElementById(`td-${remoteProducerId}`)?.remove()
-                            })
+                        socketRef.current?.on("start-recording", async () => {
+                            startRecordingAndSetJointimestamp()
+                        })
 
-                            socketRef.current?.on("start-recording", async () => {
+                        socketRef.current?.on("stop-recording", async () => {
+                            setRecording(false)
+                        })
+                        socketRef.current?.on("recording", (isRecording: boolean) => {
+                            if (isRecording) {
                                 startRecordingAndSetJointimestamp()
-                            })
+                            }
+                        })
+                    }, 2000)
+            })
+        }
+    }, [establishedConnected])
 
-                            socketRef.current?.on("stop-recording", async () => {
-                                setRecording(false)
-                            })
-                            socketRef.current?.on("recording", (isRecording: boolean) => {
-                                if (isRecording) {
-                                    startRecordingAndSetJointimestamp()
-                                }
-                            })
-                        }, 2000)
-                })
-            }
-        }, [establishedConnected])
-
-        useEffect(() => {
-            if (deviceCreated && socketRef.current) {
-                socketRef.current.emit('createTransport', { consumer: false, meetId: Number(meetId) }, async ({
-                    id,
-                    iceParameters,
-                    iceCandidates,
-                    dtlsParameters,
-                    error
-                }: {
-                    id: string,
-                    iceParameters: mediasoupTypes.IceParameters,
-                    iceCandidates: mediasoupTypes.IceCandidate[],
-                    dtlsParameters: mediasoupTypes.DtlsParameters,
-                    error: any
-                }) => {
-                    if (error) {
-                        console.log(error)
-                        return
-                    }
-
-                    let producerTransport = deviceRef.current?.createSendTransport({
-                        dtlsParameters,
-                        iceParameters,
-                        iceCandidates,
-                        id
-                    })
-
-                    producerTransport?.on('connect', async ({ dtlsParameters }, callback, errback) => {
-                        try {
-                            socketRef.current?.emit('transport-connect', {
-                                dtlsParameters,
-                                consumer: false
-                            })
-                            console.log("Producer transport connected");
-                            callback()
-                        } catch (error: any) {
-                            errback(error)
-                        }
-                    })
-
-                    producerTransport?.on('produce', async (parameters, callback, errback) => {
-                        console.log(parameters)
-                        try {
-                            socketRef.current?.emit('transport-produce', {
-                                kind: parameters.kind,
-                                rtpParameters: parameters.rtpParameters,
-                                appData: parameters.appData,
-                                meetId: Number(meetId)
-                            }, ({ id, producersExist }: { id: string, producersExist: boolean }) => {
-                                console.log("callback called")
-                                callback({ id })
-                                if (producersExist) {
-                                    socketRef.current?.on('new-producer', ({ producerId }) => signalNewConsumerTransport(producerId, Number(meetId)))
-                                }
-                                else { console.log("no producer") }
-                            })
-                        } catch (error: any) {
-                            errback(error)
-                        }
-                    })
-
-                    setProducerTransportState(producerTransport)
-                })
-
-                // create send transports
-            }
-        }, [deviceCreated])
-
-        const signalNewConsumerTransport = async (remoteProducerId: string, meetId: number) => {
-            if (consumingTransports.includes(remoteProducerId)) return;
-            let newConsumerTransports = [...consumingTransports, remoteProducerId]
-            setConsumingTransports(newConsumerTransports)
-            socketRef.current?.emit('createTransport', { consumer: true, meetId }, async ({
+    useEffect(() => {
+        if (deviceCreated && socketRef.current) {
+            socketRef.current.emit('createTransport', { consumer: false, meetId: Number(meetId) }, async ({
                 id,
                 iceParameters,
                 iceCandidates,
@@ -346,159 +299,229 @@ export default function({ params }: { params: Promise<{ meetId: string; username
                     console.log(error)
                     return
                 }
-                console.log(`PARAMS... ${params}`)
-                let consumerTransport
-                try {
-                    consumerTransport = deviceRef.current?.createRecvTransport({
-                        id,
-                        iceCandidates,
-                        dtlsParameters,
-                        iceParameters
-                    })
-                    consumerTransport?.on('connect', async ({ dtlsParameters }, callback, errback) => {
-                        try {
-                            socketRef.current?.emit('transport-recv-connect', {
-                                dtlsParameters,
-                                serverConsumerTransportId: id,
-                            })
-                            // Tell the transport that parameters were transmitted.
-                            callback()
-                        } catch (error: any) {
-                            errback(error)
-                        }
-                    })
 
-                    // @ts-ignore
-                    connectRecvTransport(consumerTransport, remoteProducerId, id, Number(meetId));
-                } catch (error) {
-                    // exceptions: 
-                    // {InvalidStateError} if not loaded
-                    // {TypeError} if wrong arguments.
-                    console.log(error)
-                    return
-                }
+                let producerTransport = deviceRef.current?.createSendTransport({
+                    dtlsParameters,
+                    iceParameters,
+                    iceCandidates,
+                    id
+                })
+
+                producerTransport?.on('connect', async ({ dtlsParameters }, callback, errback) => {
+                    try {
+                        socketRef.current?.emit('transport-connect', {
+                            dtlsParameters,
+                            consumer: false
+                        })
+                        console.log("Producer transport connected");
+                        callback()
+                    } catch (error: any) {
+                        errback(error)
+                    }
+                })
+
+                producerTransport?.on('produce', async (parameters, callback, errback) => {
+                    console.log(parameters)
+                    try {
+                        socketRef.current?.emit('transport-produce', {
+                            kind: parameters.kind,
+                            rtpParameters: parameters.rtpParameters,
+                            appData: parameters.appData,
+                            meetId: Number(meetId)
+                        }, ({ id, producersExist }: { id: string, producersExist: boolean }) => {
+                            console.log("callback called")
+                            callback({ id })
+                            if (producersExist) {
+                                socketRef.current?.on('new-producer', ({ producerId }) => signalNewConsumerTransport(producerId, Number(meetId)))
+                            }
+                            else { console.log("no producer") }
+                        })
+                    } catch (error: any) {
+                        errback(error)
+                    }
+                })
+
+                setProducerTransportState(producerTransport)
             })
-        }
 
-        async function startRecordingAndSetJointimestamp() {
-            const time = await timeOfServer()
-            if (time == -1) {
+            // create send transports
+        }
+    }, [deviceCreated])
+
+    const signalNewConsumerTransport = async (remoteProducerId: string, meetId: number) => {
+        if (consumingTransports.includes(remoteProducerId)) return;
+        let newConsumerTransports = [...consumingTransports, remoteProducerId]
+        setConsumingTransports(newConsumerTransports)
+        socketRef.current?.emit('createTransport', { consumer: true, meetId }, async ({
+            id,
+            iceParameters,
+            iceCandidates,
+            dtlsParameters,
+            error
+        }: {
+            id: string,
+            iceParameters: mediasoupTypes.IceParameters,
+            iceCandidates: mediasoupTypes.IceCandidate[],
+            dtlsParameters: mediasoupTypes.DtlsParameters,
+            error: any
+        }) => {
+            if (error) {
+                console.log(error)
+                return
+            }
+            console.log(`PARAMS... ${params}`)
+            let consumerTransport
+            try {
+                consumerTransport = deviceRef.current?.createRecvTransport({
+                    id,
+                    iceCandidates,
+                    dtlsParameters,
+                    iceParameters
+                })
+                consumerTransport?.on('connect', async ({ dtlsParameters }, callback, errback) => {
+                    try {
+                        socketRef.current?.emit('transport-recv-connect', {
+                            dtlsParameters,
+                            serverConsumerTransportId: id,
+                        })
+                        // Tell the transport that parameters were transmitted.
+                        callback()
+                    } catch (error: any) {
+                        errback(error)
+                    }
+                })
+
+                // @ts-ignore
+                connectRecvTransport(consumerTransport, remoteProducerId, id, Number(meetId));
+            } catch (error) {
+                // exceptions: 
+                // {InvalidStateError} if not loaded
+                // {TypeError} if wrong arguments.
+                console.log(error)
+                return
+            }
+        })
+    }
+
+    async function startRecordingAndSetJointimestamp() {
+        const time = await timeOfServer()
+        if (time == -1) {
+            toast("Recording server down")
+            router.push("/meets")
+            return
+        }
+        setRecording(true)
+        try {
+            const response = await axios.post(`${authUrl}/api/meet/join-recording`, {
+                join_time: time,
+                meet_id: Number(meetId)
+            }, { withCredentials: true })
+            if (response.status != 200) {
                 toast("Recording server down")
                 router.push("/meets")
                 return
             }
-            setRecording(true)
-            try {
-                const response = await axios.post(`${authUrl}/api/meet/join-recording`, {
-                    join_time: time,
-                    meet_id: Number(meetId)
-                }, { withCredentials: true })
-                if (response.status != 200) {
-                    toast("Recording server down")
-                    router.push("/meets")
-                    return
-                }
-            } catch (err) {
-                toast("Issue recording")
-                router.push("/meets")
+        } catch (err) {
+            toast("Issue recording")
+            router.push("/meets")
+            return
+        }
+    }
+
+    const connectRecvTransport = async (consumerTransport: mediasoupTypes.Transport, remoteProducerId: string, serverConsumerTransportId: string, meetId: number) => {
+        // for consumer, we need to tell the server first
+        // to create a consumer based on the rtpCapabilities and consume
+        // if the router can consume, it will send back a set of params as below
+        socketRef.current?.emit('consume', {
+            rtpCapabilities: deviceRef.current?.rtpCapabilities,
+            remoteProducerId,
+            serverConsumerTransportId,
+            meetId
+        }, async ({ params }: { params: any }) => {
+            if (params.error) {
+                console.log('Cannot Consume')
                 return
             }
-        }
 
-        const connectRecvTransport = async (consumerTransport: mediasoupTypes.Transport, remoteProducerId: string, serverConsumerTransportId: string, meetId: number) => {
-            // for consumer, we need to tell the server first
-            // to create a consumer based on the rtpCapabilities and consume
-            // if the router can consume, it will send back a set of params as below
-            socketRef.current?.emit('consume', {
-                rtpCapabilities: deviceRef.current?.rtpCapabilities,
-                remoteProducerId,
-                serverConsumerTransportId,
-                meetId
-            }, async ({ params }: { params: any }) => {
-                if (params.error) {
-                    console.log('Cannot Consume')
-                    return
-                }
-
-                console.log(`Consumer Params ${params}`)
-                // then consume with the local consumer transport
-                // which creates a consumer
-                const consumer = await consumerTransport.consume({
-                    id: params.id,
-                    producerId: params.producerId,
-                    kind: params.kind,
-                    rtpParameters: params.rtpParameters
-                })
-
-                let newConsumerTransports = [
-                    ...consumerTransports,
-                    {
-                        consumerTransport,
-                        serverConsumerTransportId: params.id,
-                        producerId: remoteProducerId,
-                        consumer,
-                    },
-                ]
-
-                setConsumerTransports(newConsumerTransports)
-
-                // create a new div element for the new consumer media
-                const newElem = document.createElement('div')
-                newElem.setAttribute('id', `td-${remoteProducerId}`)
-
-                if (params.kind == 'audio') {
-                    //append to the audio container
-                    newElem.innerHTML = '<audio id="' + remoteProducerId + '" autoplay></audio>'
-                } else {
-                    //append to the video container
-                    newElem.setAttribute('class', 'remoteVideo')
-                    newElem.innerHTML = '<video id="' + remoteProducerId + '" autoplay class="video" ></video>'
-                }
-
-                document.getElementById("videoContainer")?.appendChild(newElem)
-
-                // destructure and retrieve the video track from the producer
-                const { track } = consumer
-
-                // @ts-ignore
-                let value = document.getElementById(remoteProducerId) as HTMLVideoElement
-                // @ts-ignore
-                value.srcObject = new MediaStream([track])
-
-                // the server consumer started with media paused
-                // so we need to inform the server to resume
-                socketRef.current?.emit('consumer-resume', { serverConsumerId: params.serverConsumerId })
+            console.log(`Consumer Params ${params}`)
+            // then consume with the local consumer transport
+            // which creates a consumer
+            const consumer = await consumerTransport.consume({
+                id: params.id,
+                producerId: params.producerId,
+                kind: params.kind,
+                rtpParameters: params.rtpParameters
             })
-        }
 
-        return (
-            <>
-                <div>
-                    Recording = {JSON.stringify(recording)}
-                    {
-                        host &&
-                        <Button onClick={() => {
-                            let message = recording ? "stop-recording" : "start-recording"
-                            socketRef.current?.emit(message, Number(meetId))
-                        }}>
-                            {
-                                recording ? "Stop Recording" : "Start Recording"
-                            }
-                        </Button>
-                    }
-                    <video ref={videoRef} autoPlay className="video" muted hidden={!videoConsume} />
-                    <Button onClick={() => { setAudioConsume((prev) => !prev) }}>
-                        {
-                            audioConsume ? "No audio" : "Start audio"
-                        }
-                    </Button>
-                    <Button onClick={() => { setVideoConsume((prev) => !prev) }}>
-                        {
-                            videoConsume ? "No video" : "Start video"
-                        }
-                    </Button>
-                    <div id='videoContainer'></div>
-                </div>
-            </>
-        )
+            let newConsumerTransports = [
+                ...consumerTransports,
+                {
+                    consumerTransport,
+                    serverConsumerTransportId: params.id,
+                    producerId: remoteProducerId,
+                    consumer,
+                },
+            ]
+
+            setConsumerTransports(newConsumerTransports)
+
+            // create a new div element for the new consumer media
+            const newElem = document.createElement('div')
+            newElem.setAttribute('id', `td-${remoteProducerId}`)
+
+            if (params.kind == 'audio') {
+                //append to the audio container
+                newElem.innerHTML = '<audio id="' + remoteProducerId + '" autoplay></audio>'
+            } else {
+                //append to the video container
+                newElem.setAttribute('class', 'remoteVideo')
+                newElem.innerHTML = '<video id="' + remoteProducerId + '" autoplay class="video" ></video>'
+            }
+
+            document.getElementById("videoContainer")?.appendChild(newElem)
+
+            // destructure and retrieve the video track from the producer
+            const { track } = consumer
+
+            // @ts-ignore
+            let value = document.getElementById(remoteProducerId) as HTMLVideoElement
+            // @ts-ignore
+            value.srcObject = new MediaStream([track])
+
+            // the server consumer started with media paused
+            // so we need to inform the server to resume
+            socketRef.current?.emit('consumer-resume', { serverConsumerId: params.serverConsumerId })
+        })
     }
+
+    return (
+        <>
+            <div>
+                Recording = {JSON.stringify(recording)}
+                {
+                    host &&
+                    <Button onClick={() => {
+                        let message = recording ? "stop-recording" : "start-recording"
+                        socketRef.current?.emit(message, Number(meetId))
+                    }}>
+                        {
+                            recording ? "Stop Recording" : "Start Recording"
+                        }
+                    </Button>
+                }
+                <video ref={videoRef} autoPlay className="video" muted hidden={!videoConsume} />
+                <Button onClick={() => { setAudioConsume((prev) => !prev) }}>
+                    {
+                        audioConsume ? "No audio" : "Start audio"
+                    }
+                </Button>
+                <Button onClick={() => { setVideoConsume((prev) => !prev) }}>
+                    {
+                        videoConsume ? "No video" : "Start video"
+                    }
+                </Button>
+                <div id='videoContainer'></div>
+            </div>
+        </>
+    )
+}

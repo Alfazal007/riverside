@@ -16,6 +16,7 @@ use crate::{
         },
         time::get_time,
         users::{signin, signup, whoami},
+        video::upload,
     },
     middlewares::auth_middleware,
     types::main::AppState,
@@ -34,6 +35,9 @@ async fn main() -> std::io::Result<()> {
     let database_url = env::var("DATABASE_URL").expect("Database url not found in the env file");
     let access_token_secret =
         env::var("ACCESS_SECRET").expect("Access token secret not found in the env file");
+
+    let cloudinary_secret =
+        env::var("CLOUDINARY_SECRET").expect("Access token secret not found in the env file");
     let redis_url = env::var("REDIS_URL").expect("Redis url not found in the env file");
 
     let redis_client = redis::Client::open(redis_url).expect("Issue creating redis client");
@@ -65,6 +69,7 @@ async fn main() -> std::io::Result<()> {
                 db_connection_pool: pool.clone(),
                 access_token_secret: access_token_secret.clone(),
                 redis_client: redis_conn.clone(),
+                cloudinary_secret: cloudinary_secret.clone(),
             }))
             .service(
                 web::scope("/api/auth")
@@ -104,7 +109,7 @@ async fn main() -> std::io::Result<()> {
             .service(
                 web::scope("/video")
                     .wrap(from_fn(auth_middleware::auth_middleware))
-                    .route("/upload", web::post().to(add_participant::add_participant)),
+                    .route("/upload", web::post().to(upload::get_signature)),
             )
             .service(web::scope("/api").route("/time", web::get().to(get_time::get_time)))
     })
