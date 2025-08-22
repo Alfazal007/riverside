@@ -22,7 +22,7 @@ type ConsumerTransportDataType = {
     consumer: mediasoupTypes.Consumer<mediasoupTypes.AppData>;
 }
 
-function recorderToStreamToServer(stream: MediaStream, meetId: number, router: AppRouterInstance) {
+function recorderToStreamToServer(stream: MediaStream, meetId: number, router: AppRouterInstance, setCanGoBack: (val: boolean) => void) {
     if (!stream) {
         console.error("No stream available to record")
         return null
@@ -62,6 +62,10 @@ function recorderToStreamToServer(stream: MediaStream, meetId: number, router: A
             }
         }
     }
+
+    recorder.onstop = () => {
+        setCanGoBack(true)
+    }
     return recorder
 }
 
@@ -84,6 +88,7 @@ export default function({ params }: { params: Promise<{ meetId: string; username
     const videoProducerRef = useRef<null | Producer>(null);
     const [recording, setRecording] = useState<boolean>(false)
     const [host, setHost] = useState<boolean>(false)
+    const [canGoBack, setCanGoBack] = useState(true)
 
     const audioParamsRef = useRef<any>(null);
     const videoParamsRef = useRef<any>({ params });
@@ -139,6 +144,7 @@ export default function({ params }: { params: Promise<{ meetId: string; username
 
     useEffect(() => {
         if (recording) {
+            setCanGoBack(false)
             recorderRef.current?.start(10000)
         } else {
             recorderRef.current?.stop()
@@ -173,7 +179,7 @@ export default function({ params }: { params: Promise<{ meetId: string; username
     const streamSuccess = (stream: any) => {
         if (videoRef.current && stream) {
             if (!recorderRef.current) {
-                recorderRef.current = recorderToStreamToServer(stream, Number(meetId), router)
+                recorderRef.current = recorderToStreamToServer(stream, Number(meetId), router, setCanGoBack)
             }
             videoRef.current.srcObject = stream;
             audioParamsRef.current = { track: stream.getAudioTracks()[0], ...audioParamsRef.current };
@@ -498,6 +504,9 @@ export default function({ params }: { params: Promise<{ meetId: string; username
         <>
             <div>
                 Recording = {JSON.stringify(recording)}
+                <Button onClick={() => { router.push("/meets"); return }} disabled={!canGoBack}>
+                    Leave
+                </Button>
                 {
                     host &&
                     <Button onClick={() => {

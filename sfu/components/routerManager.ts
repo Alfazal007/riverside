@@ -292,6 +292,11 @@ export class RouterManager {
             await prisma.recordEvent.createMany({
                 data: dataToAdd
             })
+            await prisma.combineVideo.create({
+                data: {
+                    recording_id: recording.id
+                }
+            })
         } catch (err) {
             console.log({ err })
             // retry
