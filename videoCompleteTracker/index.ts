@@ -1,38 +1,33 @@
-import { prisma } from "./prisma";
+import { mainLogic } from "./executeStatements"
+import { prisma } from "./prisma"
+import { configDotenv } from "dotenv"
+
+configDotenv()
 
 async function main() {
     while (true) {
-        let combineVideoData = null;
+        let combineVideoData: null | {
+            recording_id: number;
+            compiled: boolean;
+        } = null
 
         try {
             combineVideoData = await prisma.combineVideo.findFirst({
                 where: {
                     compiled: false
                 }
-            });
+            })
         } catch (err) {
-            console.error("Error fetching combineVideo:", err);
+            console.error("Error fetching combineVideo:", err)
         }
 
         if (combineVideoData) {
-            try {
-                //TODO:: compile the video 
-                await prisma.combineVideo.update({
-                    where: { recording_id: combineVideoData.recording_id },
-                    data: {
-                        compiled: true
-                    }
-                })
-
-            } catch (err) {
-                console.error("Error processing combineVideo:", err);
-                // optionally retry or handle failed job
-            }
+            await mainLogic(combineVideoData.recording_id)
         } else {
-            // No data found, wait 10 seconds before polling again
-            await new Promise((resolve) => setTimeout(resolve, 10000));
+            console.log("no data so wating for 10 seconds")
+            await new Promise((resolve) => setTimeout(resolve, 10000))
         }
     }
 }
 
-main();
+main()

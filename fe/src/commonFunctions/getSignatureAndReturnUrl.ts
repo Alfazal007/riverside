@@ -20,7 +20,7 @@ export async function urlCreator(meetId: number): Promise<null | ReturnCloudinar
             const { timestamp, signature, public_id } = response.data
             const cloudinaryUploadUrl = `https://api.cloudinary.com/v1_1/itachivrnft/raw/upload`
             return {
-                timestamp, signature, public_id, cloudinaryUploadUrl, api_key: "949193924699989"
+                timestamp, signature, public_id, cloudinaryUploadUrl, api_key: "131286585685619"
             }
         }
     } catch (err) {

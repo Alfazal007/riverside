@@ -31,7 +31,7 @@ function recorderToStreamToServer(stream: MediaStream, meetId: number, router: A
         mimeType: "video/webm;codecs=vp8"
     })
     recorder.ondataavailable = async (event) => {
-        if (event.data && event.data.size > 0) {
+        if (event.data && event.data.size > 0 && recorder.state == "recording") {
             try {
                 const signatureData = await urlCreator(meetId)
                 if (!signatureData) {
@@ -147,7 +147,11 @@ export default function({ params }: { params: Promise<{ meetId: string; username
             setCanGoBack(false)
             recorderRef.current?.start(10000)
         } else {
+            console.log("stopping recording")
+            console.log(recorderRef.current)
             recorderRef.current?.stop()
+            console.log("after stopping")
+            console.log(recorderRef.current)
         }
     }, [recording])
 
@@ -179,6 +183,7 @@ export default function({ params }: { params: Promise<{ meetId: string; username
     const streamSuccess = (stream: any) => {
         if (videoRef.current && stream) {
             if (!recorderRef.current) {
+                console.log("setting recorder ref")
                 recorderRef.current = recorderToStreamToServer(stream, Number(meetId), router, setCanGoBack)
             }
             videoRef.current.srcObject = stream;
