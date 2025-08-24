@@ -9,22 +9,33 @@ cloudinary.config({
     api_secret: process.env.CLOUDINARY_SECRET!
 })
 
-export async function downloadVideo(requiredPublicIds: { publicId: string, timestamp: number }[], recordEventId: number): Promise<boolean> {
+export async function downloadVideo(requiredPublicIds: { publicId: string, timestamp: number, joinId: number }[]): Promise<boolean> {
     try {
         let urls: string[] = []
-        requiredPublicIds.forEach((publicId) => {
-            let url = cloudinaryUrl(publicId.publicId)
-            urls.push(url)
-        })
         for (let i = 0; i < requiredPublicIds.length; i++) {
+            let publicIdData = requiredPublicIds[i]
+            if (!publicIdData) {
+                return false
+            }
+            let url = cloudinaryUrl(publicIdData.publicId)
+            urls.push(url)
         }
-        // get the timestamps of each publicid and while storing use the joined timestamp to store the downloaded video
-        // download the video and store them into the downloads folder
+        for (let i = 0; i < requiredPublicIds.length; i++) {
+            let urlCurrent = urls[i] as string
+            let timestampCurrent = requiredPublicIds[i]?.timestamp as number
+            let joinIdCurrent = requiredPublicIds[i]?.joinId as number
+            let res = await downloadEachFile(urlCurrent, timestampCurrent, joinIdCurrent)
+            if (!res) {
+                return false
+            }
+        }
+        // TODO:: combine the file
         return true
     } catch (err) {
         return false
     } finally {
-        await deleteDownloads()
+        // TODO:: uncomment this line
+        //       await deleteDownloads()
     }
 }
 
@@ -51,8 +62,8 @@ async function downloadEachFile(url: string, timestamp: number, joinId: number):
     if (!res.ok) {
         return false
     }
-    const buffer = Buffer.from(await res.arrayBuffer());
-    fs.writeFileSync(filePath, buffer);
+    const arrayBuffer = await res.arrayBuffer();
+    await Bun.write(filePath, arrayBuffer);
     return true
 }
 

@@ -6,14 +6,15 @@ async function main() {
         await redis.connect()
     }
     while (true) {
+        // TODO:: do kafka thing here and also make the thing commit to kafka after everything succeeds
         const recordEventIdString = await redis.brPop("render-final", 0)
         if (!recordEventIdString || !recordEventIdString.element) {
             continue
         }
-        let recordEventId = Number(recordEventIdString.element)
+        let recordEventRecordingId = Number(recordEventIdString.element)
         let res = false
         while (!res) {
-            res = await combineVideo(recordEventId)
+            res = await combineVideo(recordEventRecordingId)
         }
     }
 }

@@ -1,45 +1,58 @@
 import { prisma } from "../prisma"
 import { downloadVideo } from "./downloadVideos"
-import { userIds } from "./fetchUserIdsOfRecordings"
-import { userRecords } from "./fetchUserRecords"
+import { getJoinEventIds } from "./fetchJoinEventIds"
 
-export async function combineVideo(recordEventId: number): Promise<boolean> {
+export async function combineVideo(recordEventRecordingId: number): Promise<boolean> {
     try {
-        console.log(`working on ${recordEventId}`)
-        let requiredPublicIds: { publicId: string, timestamp: number }[] = []
+        console.log(`working on ${recordEventRecordingId}`)
         const recordingEvent = await prisma.recordEvent.findFirst({
             where: {
-                recording_id: recordEventId
+                recording_id: recordEventRecordingId
             }
         })
         if (!recordingEvent) {
             return false
         }
         let meetId = recordingEvent.meet_id
-        const joinedUserIds = await userIds(`riverside/${meetId}/${recordEventId}`)
-        if (!joinedUserIds || joinedUserIds.length == 0) {
+        let joinEventIds = await getJoinEventIds(meetId, recordEventRecordingId)
+        if (!joinEventIds || joinEventIds.length == 0) {
             return false
         }
-        for (let i = 0; i < joinedUserIds.length; i++) {
-            let userId = joinedUserIds[i]
-            let recordEventsCloudinary = await userRecords(`riverside/${meetId}/${recordEventId}/${userId}`)
-            if (!recordEventsCloudinary || recordEventsCloudinary.length == 0) {
+        const recordJoinEvents = await prisma.recordEvent.findMany({
+            where: {
+                action: "join",
+                meet_id: meetId,
+                recording_id: recordEventRecordingId,
+                id: {
+                    in: joinEventIds
+                }
+            },
+            orderBy: {
+                timestamp: "asc"
+            },
+            select: {
+                timestamp: true,
+                id: true
+            }
+        })
+        if (recordJoinEvents.length != joinEventIds.length) {
+            return false
+        }
+        let publicIds: { publicId: string, timestamp: number, joinId: number }[] = []
+        for (let i = 0; i < recordJoinEvents.length; i++) {
+            let recordEvent = recordJoinEvents[i]
+            if (!recordEvent) {
                 return false
             }
-            for (let j = 0; j < recordEventsCloudinary.length; j++) {
-                let outputFilePublicId = `riverside/${meetId}/${recordEventId}/${userId}/${recordEventsCloudinary[j]}/output`
-                const timestampOfStart = await prisma.recordEvent.findFirst({
-                    where: {
-                        id: recordEventsCloudinary[j]
-                    }
-                })
-                if (!timestampOfStart) {
-                    return false
-                }
-                requiredPublicIds.push({ publicId: outputFilePublicId, timestamp: Number(timestampOfStart.timestamp) })
-            }
+            let publicId = `riverside/singles/${meetId}/${recordEventRecordingId}/${recordEvent.id}/${recordEvent.timestamp}`
+            publicIds.push({
+                publicId, timestamp: Number(recordEvent.timestamp),
+                joinId: recordEvent.id
+            })
         }
-        let res = await downloadVideo(requiredPublicIds, recordEventId)
+        let res = await downloadVideo(publicIds)
+        // TODO:: upload the combined file
+        // TODO:: delete the uploaded combined file
         return res
     }
     catch (err) {

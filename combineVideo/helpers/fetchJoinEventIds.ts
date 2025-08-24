@@ -1,16 +1,17 @@
 import { v2 as cloudinary } from "cloudinary"
 
-export async function userIds(path: string): Promise<number[]> {
+export async function getJoinEventIds(meetId: number, recordingId: number): Promise<number[]> {
     cloudinary.config({
         cloud_name: 'itachivrnft',
         api_key: '131286585685619',
         api_secret: process.env.CLOUDINARY_SECRET!
     })
+    let path = `riverside/singles/${meetId}/${recordingId}`
     try {
-        let users: number[] = []
+        let joinEventIds: number[] = []
         const response = await cloudinary.api.sub_folders(path, { max_results: 100 });
-        response.folders.forEach((folder: any) => { users.push(Number(folder.name)) })
-        return users
+        response.folders.forEach((folder: any) => { joinEventIds.push(Number(folder.name)) })
+        return joinEventIds
     } catch (err) {
         console.error('Error fetching subfolders:', err);
         return []
