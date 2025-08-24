@@ -1,6 +1,7 @@
 import { downloadAndCombineVideo } from "./createVideoFull"
 import { userIds } from "./fetchUserRecordingFolders"
 import { userRecords } from "./fetchUserRecordsFolders"
+import { kafkaProducer } from "./kafka"
 import { prisma } from "./prisma"
 import { redis } from "./redis"
 
@@ -47,10 +48,13 @@ export async function mainLogic(recordingId: number) {
                 compiled: true
             }
         })
-        if (!redis.connected) {
-            await redis.connect()
-        }
-        await redis.lpush("render-final", recordEvent.recording_id.toString())
+        await kafkaProducer.connect()
+        await kafkaProducer.send({
+            topic: "render-final",
+            messages: [{
+                value: recordEvent.recording_id.toString()
+            }]
+        })
     } catch (err) {
         console.error("Error processing combineVideo:", err)
     }

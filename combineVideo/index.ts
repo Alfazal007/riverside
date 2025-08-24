@@ -1,22 +1,28 @@
 import { combineVideo } from "./helpers/combineVideo"
-import { redis } from "./redis"
+import { kafkaConsumer } from "./kafka"
 
 async function main() {
-    if (!redis.connected) {
-        await redis.connect()
-    }
-    while (true) {
-        // TODO:: do kafka thing here and also make the thing commit to kafka after everything succeeds
-        const recordEventIdString = await redis.brPop("render-final", 0)
-        if (!recordEventIdString || !recordEventIdString.element) {
-            continue
-        }
-        let recordEventRecordingId = Number(recordEventIdString.element)
-        let res = false
-        while (!res) {
-            res = await combineVideo(recordEventRecordingId)
-        }
-    }
+    await kafkaConsumer.connect();
+    await kafkaConsumer.subscribe({
+        topic: "render-final",
+    })
+    await kafkaConsumer.run({
+        autoCommit: false,
+        eachMessage: async ({ topic, partition, message }) => {
+            try {
+                let recordEventRecordingId = Number(message?.value?.toString())
+                let res = false
+                while (!res) {
+                    res = await combineVideo(recordEventRecordingId)
+                }
+                await kafkaConsumer.commitOffsets([{
+                    topic: topic,
+                    partition: partition,
+                    offset: (parseInt(message.offset) + 1).toString()
+                }]);
+            } catch (err) { }
+        },
+    })
 }
 
 main()
