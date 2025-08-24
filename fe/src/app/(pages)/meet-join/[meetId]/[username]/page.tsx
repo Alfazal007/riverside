@@ -145,7 +145,9 @@ export default function({ params }: { params: Promise<{ meetId: string; username
     useEffect(() => {
         if (recording) {
             setCanGoBack(false)
-            recorderRef.current?.start(10000)
+            if (recorderRef.current?.state == "inactive") {
+                recorderRef.current.start(10000)
+            }
         } else {
             console.log("stopping recording")
             console.log(recorderRef.current)
@@ -185,6 +187,9 @@ export default function({ params }: { params: Promise<{ meetId: string; username
             if (!recorderRef.current) {
                 console.log("setting recorder ref")
                 recorderRef.current = recorderToStreamToServer(stream, Number(meetId), router, setCanGoBack)
+            }
+            if (recording && recorderRef.current?.state == "inactive") {
+                recorderRef.current.start(10000)
             }
             videoRef.current.srcObject = stream;
             audioParamsRef.current = { track: stream.getAudioTracks()[0], ...audioParamsRef.current };

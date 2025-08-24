@@ -66,11 +66,11 @@ function finalizeWithFFmpeg() {
     }
 }
 
-async function uploadVideoToCloudinary(publicId: string) {
+async function uploadVideoToCloudinary(meetId: number, timestampDb: number, recordingId: number, joinEventId: number) {
     try {
         const timestamp = Math.round(Date.now() / 1000);
         const params = {
-            public_id: publicId + '/output',
+            public_id: 'riverside/singles/' + meetId + "/" + recordingId + "/" + joinEventId + "/" + timestampDb,
             timestamp: timestamp.toString(),
         };
         const signature = generateSignature(params.timestamp, params.public_id, cloudinary.config().api_secret!);
@@ -100,13 +100,13 @@ async function uploadVideoToCloudinary(publicId: string) {
     }
 }
 
-export async function downloadAndCombineVideo(folderName: string): Promise<boolean> {
+export async function downloadAndCombineVideo(folderName: string, meetId: number, recordingId: number, timestamp: number, joinEventId: number): Promise<boolean> {
     try {
         const chunks = await getChunks(folderName);
         await downloadChunks(chunks);
         concatChunks(chunks);
         finalizeWithFFmpeg();
-        await uploadVideoToCloudinary(folderName)
+        await uploadVideoToCloudinary(meetId, timestamp, recordingId, joinEventId)
         return true
     } catch (err) {
         return false

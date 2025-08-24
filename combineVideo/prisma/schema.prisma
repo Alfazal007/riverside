@@ -1,0 +1,90 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           Int           @id @default(autoincrement())
+  email        String        @unique
+  username     String
+  password     String
+  meetsHosted  Meet[]        @relation("UserToHost")
+  participants Participant[]
+  RecordEvent  RecordEvent[]
+
+  @@map("users")
+}
+
+model Meet {
+  id           Int           @id @default(autoincrement())
+  title        String        @default("meet")
+  hostId       Int
+  is_finished  Boolean       @default(false)
+  host         User          @relation("UserToHost", fields: [hostId], references: [id], onDelete: Cascade)
+  participants Participant[]
+  recordings   Recording[]
+
+  recordEvents RecordEvent[]
+
+  @@map("meets")
+}
+
+model Participant {
+  id      Int     @id @default(autoincrement())
+  meet_id Int
+  user_id Int
+  is_host Boolean @default(false)
+  meet    Meet    @relation(fields: [meet_id], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([meet_id, user_id])
+  @@map("participants")
+}
+
+model Recording {
+  id      Int  @id @default(autoincrement())
+  meet_id Int
+  meet    Meet @relation(fields: [meet_id], references: [id], onDelete: Cascade)
+
+  recordEvents RecordEvent[]
+
+  combineVideo  CombineVideo?
+
+  @@map("recordings")
+}
+
+enum EventAction {
+  join
+  left
+
+  @@map("event_action")
+}
+
+model RecordEvent {
+  id           Int         @id @default(autoincrement())
+  recording_id Int
+  action       EventAction
+  user_id      Int
+  meet_id      Int
+  timestamp    BigInt
+
+  meet          Meet         @relation(fields: [meet_id], references: [id], onDelete: Cascade)
+  user          User         @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  recording     Recording    @relation(fields: [recording_id], references: [id], onDelete: Cascade)
+
+  @@map("recordevents")
+}
+
+model CombineVideo {
+  recording_id Int       @id
+  compiled     Boolean   @default(false)
+
+  recording     Recording    @relation(fields: [recording_id], references: [id], onDelete: Cascade)
+
+  @@map("combine_video")
+}

@@ -2,6 +2,7 @@ import { downloadAndCombineVideo } from "./createVideoFull"
 import { userIds } from "./fetchUserRecordingFolders"
 import { userRecords } from "./fetchUserRecordsFolders"
 import { prisma } from "./prisma"
+import { redis } from "./redis"
 
 export async function mainLogic(recordingId: number) {
     try {
@@ -19,14 +20,22 @@ export async function mainLogic(recordingId: number) {
             return
         }
         for (let i = 0; i < joinedUserIds.length; i++) {
-            let userId = joinedUserIds[i]
+            let userId = joinedUserIds[i] as number
             let recordEventsCloudinary = await userRecords(`riverside/${meetId}/${recordingId}/${userId}`)
             if (!recordEventsCloudinary || recordEventsCloudinary.length == 0) {
                 return
             }
             for (let j = 0; j < recordEventsCloudinary.length; j++) {
-                let recordEvent = recordEventsCloudinary[j]
-                const responseTrueOrNot = await downloadAndCombineVideo(`riverside/${meetId}/${recordingId}/${userId}/${recordEvent}`)
+                let recordEvent = recordEventsCloudinary[j] as number
+                const recordEventDb = await prisma.recordEvent.findFirst({
+                    where: {
+                        id: recordEvent
+                    }
+                })
+                if (!recordEventDb) {
+                    return
+                }
+                const responseTrueOrNot = await downloadAndCombineVideo(`riverside/${meetId}/${recordingId}/${userId}/${recordEvent}`, meetId, recordingId, Number(recordEventDb.timestamp), recordEvent)
                 if (!responseTrueOrNot) {
                     return
                 }
@@ -38,6 +47,10 @@ export async function mainLogic(recordingId: number) {
                 compiled: true
             }
         })
+        if (!redis.connected) {
+            await redis.connect()
+        }
+        await redis.lpush("render-final", recordEvent.recording_id.toString())
     } catch (err) {
         console.error("Error processing combineVideo:", err)
     }
