@@ -6,5 +6,7 @@ const kafka = new Kafka({
 })
 
 export const kafkaConsumer = kafka.consumer({
-    groupId: "test-1"
+    groupId: "test-1",
+    sessionTimeout: 90000,
+    heartbeatInterval: 3000,
 })

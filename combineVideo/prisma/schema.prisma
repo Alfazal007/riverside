@@ -53,6 +53,8 @@ model Recording {
 
   recordEvents RecordEvent[]
 
+  completed_recordings CompletedRecordings?
+
   combineVideo  CombineVideo?
 
   @@map("recordings")
@@ -87,4 +89,12 @@ model CombineVideo {
   recording     Recording    @relation(fields: [recording_id], references: [id], onDelete: Cascade)
 
   @@map("combine_video")
+}
+
+model CompletedRecordings {
+  recording_id Int       @id
+
+  recording     Recording    @relation(fields: [recording_id], references: [id], onDelete: Cascade)
+
+  @@map("completed_recordings")
 }

@@ -1,7 +1,7 @@
 import { v2 as cloudinary } from "cloudinary"
 import path, { join } from "path"
 import { readdir, rm } from 'fs/promises'
-import fs from "fs"
+import { finalCombiner } from "./finalCombiner"
 
 cloudinary.config({
     cloud_name: 'itachivrnft',
@@ -29,13 +29,10 @@ export async function downloadVideo(requiredPublicIds: { publicId: string, times
                 return false
             }
         }
-        // TODO:: combine the file
-        return true
+        const combineResult = await finalCombiner()
+        return combineResult
     } catch (err) {
         return false
-    } finally {
-        // TODO:: uncomment this line
-        //       await deleteDownloads()
     }
 }
 
@@ -46,14 +43,6 @@ function cloudinaryUrl(publicId: string): string {
         secure: true,
     })
     return videoUrl
-}
-
-async function deleteDownloads() {
-    const folder = path.join(__dirname, "../downloads/")
-    const files = await readdir(folder)
-    await Promise.all(
-        files.map(file => rm(join(folder, file), { recursive: true, force: true }))
-    )
 }
 
 async function downloadEachFile(url: string, timestamp: number, joinId: number): Promise<boolean> {
@@ -67,4 +56,3 @@ async function downloadEachFile(url: string, timestamp: number, joinId: number):
     return true
 }
 
-async function hitDbAndDownloadCall(url: string) { }

@@ -1,6 +1,9 @@
 import { prisma } from "../prisma"
+import path, { join } from "path"
 import { downloadVideo } from "./downloadVideos"
 import { getJoinEventIds } from "./fetchJoinEventIds"
+import { uploadVideoToCloudinary } from "./uploadVideo"
+import { readdir, rm } from 'fs/promises'
 
 export async function combineVideo(recordEventRecordingId: number): Promise<boolean> {
     try {
@@ -51,12 +54,33 @@ export async function combineVideo(recordEventRecordingId: number): Promise<bool
             })
         }
         let res = await downloadVideo(publicIds)
-        // TODO:: upload the combined file
-        // TODO:: delete the uploaded combined file
+        if (!res) {
+            return false
+        }
+        res = await uploadVideoToCloudinary(meetId, recordEventRecordingId)
+        if (!res) {
+            return false
+        }
+        await prisma.completedRecordings.create({
+            data: {
+                recording_id: recordEventRecordingId
+            }
+        })
         return res
     }
     catch (err) {
         console.log({ err })
         return false
+    } finally {
+        deleteGeneratedFile()
     }
 }
+
+async function deleteGeneratedFile() {
+    const folder = path.join(__dirname, "../downloads/")
+    const files = await readdir(folder)
+    await Promise.all(
+        files.map(file => rm(join(folder, file), { recursive: true, force: true }))
+    )
+}
+

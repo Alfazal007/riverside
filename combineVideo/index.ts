@@ -5,6 +5,7 @@ async function main() {
     await kafkaConsumer.connect();
     await kafkaConsumer.subscribe({
         topic: "render-final",
+        fromBeginning: false
     })
     await kafkaConsumer.run({
         autoCommit: false,
