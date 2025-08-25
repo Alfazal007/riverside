@@ -12,6 +12,8 @@ import { Users, Plus, Crown, User, Trash2, Play } from 'lucide-react';
 import { AddParticipantFormData, Participant } from '@/types';
 import axios from 'axios';
 import { toast } from "sonner"
+import { Recording, RecordingsSection } from '@/components/recordings';
+import { authUrl } from '../../../../constants';
 
 interface MeetFromDb {
     id: number;
@@ -44,6 +46,18 @@ export default function AddParticipantsPage() {
     const [meetData, setMeetdata] = useState<ParticipantsAndMeet>();
     const [participants, setParticipants] = useState<Participant[]>([]);
     const [errors, setErrors] = useState<Partial<AddParticipantFormData>>({});
+    const [recordings, setRecordings] = useState<Recording[]>([])
+
+    async function getRecordings() {
+        try {
+            const response = await axios.get(`${authUrl}/recording/${Number(meetId)}`, { withCredentials: true })
+            if (response.status === 200) {
+                setRecordings(response.data);
+            }
+        } catch (err) {
+            console.log({ err })
+        }
+    }
 
     async function handleRemoveParticipant(participantId: number, meetId: number) {
         try {
@@ -71,6 +85,7 @@ export default function AddParticipantsPage() {
             router.push("/login")
             return
         }
+        getRecordings()
     }, [])
 
     useEffect(() => {
@@ -136,7 +151,9 @@ export default function AddParticipantsPage() {
     return (
         <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
             <Navigation isAuthenticated />
-
+            {recordings.length > 0 &&
+                <RecordingsSection recordings={recordings} meetId={Number(meetId)} />
+            }
             <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
                 <div className="text-center mb-12">
                     <div className="flex items-center justify-center mb-6">

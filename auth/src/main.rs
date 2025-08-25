@@ -10,6 +10,7 @@ use sqlx::postgres::PgPoolOptions;
 
 use crate::{
     controllers::{
+        generated_video_url::{get_all_generated_recordings, get_final_url},
         meets::{
             add_participant, create_meet, get_meet_info, get_meets, is_host, join_recording,
             leave_recording, remove_participant,
@@ -110,6 +111,18 @@ async fn main() -> std::io::Result<()> {
                 web::scope("/video")
                     .wrap(from_fn(auth_middleware::auth_middleware))
                     .route("/upload", web::post().to(upload::get_signature)),
+            )
+            .service(
+                web::scope("/recording")
+                    .wrap(from_fn(auth_middleware::auth_middleware))
+                    .route(
+                        "/{meeting_id}",
+                        web::get().to(get_all_generated_recordings::get_all_generated_recordings),
+                    )
+                    .route(
+                        "/get-one",
+                        web::post().to(get_final_url::get_final_generated_video_url),
+                    ),
             )
             .service(web::scope("/api").route("/time", web::get().to(get_time::get_time)))
     })

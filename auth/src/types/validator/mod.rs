@@ -1,5 +1,6 @@
 pub mod add_participant;
 pub mod add_video_data;
+pub mod generated_video;
 pub mod get_meet_info;
 pub mod is_host;
 pub mod join_meeting;
